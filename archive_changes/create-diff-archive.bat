@@ -2,131 +2,131 @@
 setlocal enabledelayedexpansion
 
 rem ===================================================
-rem Git è®Šæ›´æª”æ¡ˆæ‰“åŒ…å·¥å…· (create-diff-archive.bat)
+rem Git ÅÜ§óÀÉ®×¥´¥]¤u¨ã (create-diff-archive.bat)
 rem ===================================================
-rem åŠŸèƒ½: å°‡å…©å€‹åˆ†æ”¯é–“çš„å·®ç•°æª”æ¡ˆæ‰“åŒ…æˆå£“ç¸®æª”
-rem ä½œè€…: Your Name
-rem æ—¥æœŸ: 2025-04-26
+rem ¥\¯à: ±N¨â­Ó¤À¤ä¶¡ªº®t²§ÀÉ®×¥´¥]¦¨À£ÁYÀÉ
+rem §@ªÌ: Your Name
+rem ¤é´Á: 2025-04-26
 rem
-rem ä½¿ç”¨æ–¹æ³•:
-rem   create-diff-archive.bat [è¼¸å‡ºæª”å] [æºåˆ†æ”¯] [ç›®æ¨™åˆ†æ”¯]
+rem ¨Ï¥Î¤èªk:
+rem   create-diff-archive.bat [¿é¥XÀÉ¦W] [·½¤À¤ä] [¥Ø¼Ğ¤À¤ä]
 rem
-rem åƒæ•¸:
-rem   [è¼¸å‡ºæª”å]   - å£“ç¸®æª”æª”æ¡ˆåç¨±ï¼Œå‰¯æª”åä¾å£“ç¸®æŒ‡å®šæ±ºå®š (é è¨­: APP_SIT.zip)
-rem   [æºåˆ†æ”¯]     - æ¯”è¼ƒçš„åŸºæº–åˆ†æ”¯ (é è¨­: master)
-rem   [ç›®æ¨™åˆ†æ”¯]   - æ¯”è¼ƒçš„ç›®æ¨™åˆ†æ”¯ (é è¨­: SIT)
+rem °Ñ¼Æ:
+rem   [¿é¥XÀÉ¦W]   - À£ÁYÀÉÀÉ®×¦WºÙ¡A°ÆÀÉ¦W¨ÌÀ£ÁY«ü©w¨M©w (¹w³]: APP_SIT.zip)
+rem   [·½¤À¤ä]     - ¤ñ¸ûªº°ò·Ç¤À¤ä (¹w³]: master)
+rem   [¥Ø¼Ğ¤À¤ä]   - ¤ñ¸ûªº¥Ø¼Ğ¤À¤ä (¹w³]: SIT)
 rem
-rem ç¯„ä¾‹:
-rem   create-diff-archive.bat                         - ä½¿ç”¨é è¨­è¨­å®š
-rem   create-diff-archive.bat changes.zip             - è‡ªè¨‚è¼¸å‡ºæª”å
-rem   create-diff-archive.bat changes.zip main        - è‡ªè¨‚æª”åå’Œæºåˆ†æ”¯
-rem   create-diff-archive.bat changes.zip main dev    - è‡ªè¨‚æ‰€æœ‰åƒæ•¸
+rem ½d¨Ò:
+rem   create-diff-archive.bat                         - ¨Ï¥Î¹w³]³]©w
+rem   create-diff-archive.bat changes.zip             - ¦Û­q¿é¥XÀÉ¦W
+rem   create-diff-archive.bat changes.zip main        - ¦Û­qÀÉ¦W©M·½¤À¤ä
+rem   create-diff-archive.bat changes.zip main dev    - ¦Û­q©Ò¦³°Ñ¼Æ
 rem ===================================================
 
-rem æª¢æŸ¥æ˜¯å¦ç‚ºèªªæ˜è«‹æ±‚
+rem ÀË¬d¬O§_¬°»¡©ú½Ğ¨D
 if "%~1"=="--help" goto :showhelp
 if "%~1"=="/?" goto :showhelp
 
-rem æª¢æŸ¥æ˜¯å¦åœ¨ Git å­˜å„²åº«ä¸­åŸ·è¡Œ
+rem ÀË¬d¬O§_¦b Git ¦sÀx®w¤¤°õ¦æ
 git rev-parse --is-inside-work-tree >nul 2>&1
 if %errorlevel% neq 0 (
-    echo éŒ¯èª¤: è«‹åœ¨ Git å­˜å„²åº«æ ¹ç›®éŒ„ä¸­åŸ·è¡Œæ­¤æ‰¹æ¬¡æª”!
+    echo ¿ù»~: ½Ğ¦b Git ¦sÀx®w®Ú¥Ø¿ı¤¤°õ¦æ¦¹§å¦¸ÀÉ!
     exit /b 1
 )
 
-rem è¨­å®šé è¨­è®Šæ•¸
+rem ³]©w¹w³]ÅÜ¼Æ
 set OUTPUT_ARCHIVE=APP_SIT.zip
 set SOURCE_BRANCH=master
 set TARGET_BRANCH=SIT
 
-rem è™•ç†å‘½ä»¤è¡Œåƒæ•¸
+rem ³B²z©R¥O¦æ°Ñ¼Æ
 if not "%~1"=="" set OUTPUT_ARCHIVE=%~1
 if not "%~2"=="" set SOURCE_BRANCH=%~2
 if not "%~3"=="" set TARGET_BRANCH=%~3
 
-rem æå–å‰¯æª”å
+rem ´£¨ú°ÆÀÉ¦W
 set FILE_EXT=%~x1
 if "%FILE_EXT%"=="" set OUTPUT_ARCHIVE=%OUTPUT_ARCHIVE%.zip
 
-echo è¼¸å‡ºæª”æ¡ˆ: %OUTPUT_ARCHIVE%
-echo æºåˆ†æ”¯: %SOURCE_BRANCH%
-echo ç›®æ¨™åˆ†æ”¯: %TARGET_BRANCH%
+echo ¿é¥XÀÉ®×: %OUTPUT_ARCHIVE%
+echo ·½¤À¤ä: %SOURCE_BRANCH%
+echo ¥Ø¼Ğ¤À¤ä: %TARGET_BRANCH%
 
 set TEMP_DIR=temp_archive_%RANDOM%
 
-rem å‰µå»ºè‡¨æ™‚ç›®éŒ„
+rem ³Ğ«ØÁ{®É¥Ø¿ı
 mkdir %TEMP_DIR%
-echo å‰µå»ºè‡¨æ™‚ç›®éŒ„: %TEMP_DIR%
+echo ³Ğ«ØÁ{®É¥Ø¿ı: %TEMP_DIR%
 
-rem ç²å–æª”æ¡ˆæ¸…å–®åˆ°è‡¨æ™‚æª”æ¡ˆ
-echo æ­£åœ¨å–å¾—è®Šæ›´æª”æ¡ˆæ¸…å–®...
+rem Àò¨úÀÉ®×²M³æ¨ìÁ{®ÉÀÉ®×
+echo ¥¿¦b¨ú±oÅÜ§óÀÉ®×²M³æ...
 git diff-tree -r --name-only --diff-filter=ACMRT %SOURCE_BRANCH% %TARGET_BRANCH% > filelist.txt
 
-rem æª¢æŸ¥æª”æ¡ˆæ¸…å–®æ˜¯å¦ç‚ºç©º
+rem ÀË¬dÀÉ®×²M³æ¬O§_¬°ªÅ
 for %%I in (filelist.txt) do if %%~zI==0 (
-    echo æ²’æœ‰ç™¼ç¾æª”æ¡ˆè®Šæ›´ï¼ŒçµæŸè™•ç†ã€‚
+    echo ¨S¦³µo²{ÀÉ®×ÅÜ§ó¡Aµ²§ô³B²z¡C
     goto cleanup
 )
 
-rem æå–æª”æ¡ˆåˆ°è‡¨æ™‚ç›®éŒ„
-echo æ­£åœ¨å¾ %TARGET_BRANCH% åˆ†æ”¯æå–æª”æ¡ˆ...
+rem ´£¨úÀÉ®×¨ìÁ{®É¥Ø¿ı
+echo ¥¿¦b±q %TARGET_BRANCH% ¤À¤ä´£¨úÀÉ®×...
 
-rem ä¿å­˜ç•¶å‰åˆ†æ”¯åç¨±
+rem «O¦s·í«e¤À¤ä¦WºÙ
 for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set CURRENT_BRANCH=%%b
-echo ç•¶å‰åˆ†æ”¯: %CURRENT_BRANCH%
+echo ·í«e¤À¤ä: %CURRENT_BRANCH%
 
-rem æª¢æŸ¥å·¥ä½œå€æ˜¯å¦ä¹¾æ·¨ï¼ˆåªç”¨æ–¼æç¤ºï¼‰
+rem ÀË¬d¤u§@°Ï¬O§_°®²b¡]¥u¥Î©ó´£¥Ü¡^
 git diff --quiet
 if %errorlevel% neq 0 (
-    echo è­¦å‘Š: å·¥ä½œå€æœ‰æœªæäº¤çš„è®Šæ›´ï¼Œä½†é€™ä¸æœƒå½±éŸ¿æª”æ¡ˆæå–ã€‚
+    echo Äµ§i: ¤u§@°Ï¦³¥¼´£¥æªºÅÜ§ó¡A¦ı³o¤£·|¼vÅTÀÉ®×´£¨ú¡C
 )
 
-rem çµ±ä¸€ä½¿ç”¨ git cat-file å‘½ä»¤æå–æª”æ¡ˆ (æ›´é©åˆäºŒé€²åˆ¶æª”æ¡ˆ)
+rem ²Î¤@¨Ï¥Î git cat-file ©R¥O´£¨úÀÉ®× (§ó¾A¦X¤G¶i¨îÀÉ®×)
 for /F "tokens=*" %%f in (filelist.txt) do (
-    rem ç¢ºä¿ç›®éŒ„å­˜åœ¨
+    rem ½T«O¥Ø¿ı¦s¦b
     for %%d in ("!TEMP_DIR!\%%~pf") do if not exist "%%~d" mkdir "%%~d"
     
-    rem å¾ç›®æ¨™åˆ†æ”¯æå–æª”æ¡ˆå…§å®¹ (ä½¿ç”¨äºŒé€²åˆ¶å®‰å…¨çš„æ–¹æ³•)
+    rem ±q¥Ø¼Ğ¤À¤ä´£¨úÀÉ®×¤º®e (¨Ï¥Î¤G¶i¨î¦w¥şªº¤èªk)
     git cat-file -p %TARGET_BRANCH%:"%%f" > "!TEMP_DIR!\%%f"
-    if !errorlevel! neq 0 echo è­¦å‘Š: ç„¡æ³•æå–æª”æ¡ˆ %%f
+    if !errorlevel! neq 0 echo Äµ§i: µLªk´£¨úÀÉ®× %%f
 )
 
-rem åˆªé™¤ç¾æœ‰çš„ zip æª”æ¡ˆ(å¦‚æœå­˜åœ¨)
+rem §R°£²{¦³ªº zip ÀÉ®×(¦pªG¦s¦b)
 if exist %OUTPUT_ARCHIVE% del %OUTPUT_ARCHIVE%
 
-rem ä½¿ç”¨ PowerShell å‰µå»º ZIP æª”æ¡ˆ
-echo æ­£åœ¨å‰µå»º ZIP æª”æ¡ˆ %OUTPUT_ARCHIVE%...
+rem ¨Ï¥Î PowerShell ³Ğ«Ø ZIP ÀÉ®×
+echo ¥¿¦b³Ğ«Ø ZIP ÀÉ®× %OUTPUT_ARCHIVE%...
 powershell -Command "Compress-Archive -Path '%TEMP_DIR%\*' -DestinationPath '%OUTPUT_ARCHIVE%'"
 
-echo å®Œæˆ! å·²å‰µå»º %OUTPUT_ARCHIVE%
+echo §¹¦¨! ¤w³Ğ«Ø %OUTPUT_ARCHIVE%
 
 goto cleanup
 
 :showhelp
 echo.
-echo Git è®Šæ›´æª”æ¡ˆæ‰“åŒ…å·¥å…·
+echo Git ÅÜ§óÀÉ®×¥´¥]¤u¨ã
 echo =====================
 echo.
-echo å°‡å…©å€‹åˆ†æ”¯é–“çš„å·®ç•°æª”æ¡ˆæ‰“åŒ…æˆå£“ç¸®æª”ï¼Œè§£æ±ºå‘½ä»¤è¡Œåƒæ•¸é•·åº¦é™åˆ¶å•é¡Œã€‚
+echo ±N¨â­Ó¤À¤ä¶¡ªº®t²§ÀÉ®×¥´¥]¦¨À£ÁYÀÉ¡A¸Ñ¨M©R¥O¦æ°Ñ¼Æªø«×­­¨î°İÃD¡C
 echo.
-echo èªæ³•: create-diff-archive.bat [è¼¸å‡ºæª”å] [æºåˆ†æ”¯] [ç›®æ¨™åˆ†æ”¯]
+echo »yªk: create-diff-archive.bat [¿é¥XÀÉ¦W] [·½¤À¤ä] [¥Ø¼Ğ¤À¤ä]
 echo.
-echo åƒæ•¸:
-echo   [è¼¸å‡ºæª”å]   - å£“ç¸®æª”æª”æ¡ˆåç¨±ï¼Œå‰¯æª”åä¾å£“ç¸®æŒ‡å®šæ±ºå®š (é è¨­: APP_SIT.zip)
-echo   [æºåˆ†æ”¯]     - æ¯”è¼ƒçš„åŸºæº–åˆ†æ”¯ (é è¨­: master)
-echo   [ç›®æ¨™åˆ†æ”¯]   - æ¯”è¼ƒçš„ç›®æ¨™åˆ†æ”¯ (é è¨­: SIT)
+echo °Ñ¼Æ:
+echo   [¿é¥XÀÉ¦W]   - À£ÁYÀÉÀÉ®×¦WºÙ¡A°ÆÀÉ¦W¨ÌÀ£ÁY«ü©w¨M©w (¹w³]: APP_SIT.zip)
+echo   [·½¤À¤ä]     - ¤ñ¸ûªº°ò·Ç¤À¤ä (¹w³]: master)
+echo   [¥Ø¼Ğ¤À¤ä]   - ¤ñ¸ûªº¥Ø¼Ğ¤À¤ä (¹w³]: SIT)
 echo.
-echo ç¯„ä¾‹:
-echo   create-diff-archive.bat                         - ä½¿ç”¨é è¨­è¨­å®š
-echo   create-diff-archive.bat changes.zip             - è‡ªè¨‚è¼¸å‡ºæª”å
-echo   create-diff-archive.bat changes.zip main        - è‡ªè¨‚æª”åå’Œæºåˆ†æ”¯
-echo   create-diff-archive.bat changes.zip main dev    - è‡ªè¨‚æ‰€æœ‰åƒæ•¸
+echo ½d¨Ò:
+echo   create-diff-archive.bat                         - ¨Ï¥Î¹w³]³]©w
+echo   create-diff-archive.bat changes.zip             - ¦Û­q¿é¥XÀÉ¦W
+echo   create-diff-archive.bat changes.zip main        - ¦Û­qÀÉ¦W©M·½¤À¤ä
+echo   create-diff-archive.bat changes.zip main dev    - ¦Û­q©Ò¦³°Ñ¼Æ
 echo.
 exit /b 0
 
 :cleanup
-rem æ¸…ç†è‡¨æ™‚æª”æ¡ˆå’Œç›®éŒ„
-echo æ¸…ç†è‡¨æ™‚æª”æ¡ˆ...
+rem ²M²zÁ{®ÉÀÉ®×©M¥Ø¿ı
+echo ²M²zÁ{®ÉÀÉ®×...
 del filelist.txt
 rmdir /S /Q %TEMP_DIR%
 
