@@ -39,7 +39,7 @@ if %errorlevel% neq 0 (
 )
 
 rem 設定預設變數
-set OUTPUT_ARCHIVE=APP_SIT.zip
+set OUTPUT_ARCHIVE=APP_SIT
 set SOURCE_BRANCH=master
 set TARGET_BRANCH=SIT
 
@@ -81,21 +81,32 @@ for %%I in ("%TEMP_DIR%\filelist.txt") do if %%~zI==0 (
     goto cleanup
 )
 
+rem 獲取總檔案數量
+powershell -Command "Write-Host '計算檔案總數...' -ForegroundColor Yellow"
+for /f %%A in ('type "%TEMP_DIR%\filelist.txt" ^| find /c /v ""') do set total_files=%%A
+powershell -Command "Write-Host ('共發現 ' + %total_files% + ' 個變更檔案') -ForegroundColor Yellow"
+
+rem 初始化檔案計數器
+set file_count=0
+
 rem 提取檔案到臨時目錄
-echo 正在從 %TARGET_BRANCH% 分支提取檔案...
+powershell -Command "Write-Host '正在從 %TARGET_BRANCH% 分支提取檔案...' -ForegroundColor Yellow"
 
 rem 保存當前分支名稱
 for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set CURRENT_BRANCH=%%b
-echo 當前分支: %CURRENT_BRANCH%
+powershell -Command "Write-Host ('當前分支: ' + '%CURRENT_BRANCH%') -ForegroundColor Cyan"
 
 rem 檢查工作區是否乾淨（只用於提示）
 git diff --quiet
 if %errorlevel% neq 0 (
-    echo 警告: 工作區有未提交的變更，但這不會影響檔案提取。
+    powershell -Command "Write-Host '警告: 工作區有未提交的變更，但這不會影響檔案提取。' -ForegroundColor Yellow"
 )
 
 rem 逐行讀取檔案清單並處理
 for /F "usebackq tokens=*" %%f in ("%TEMP_DIR%\filelist.txt") do (
+    rem 增加計數器
+    set /a file_count+=1
+    
     rem 設置目標檔案路徑
     set "target_file=!TEMP_DIR!\%%f"
     
@@ -107,9 +118,9 @@ for /F "usebackq tokens=*" %%f in ("%TEMP_DIR%\filelist.txt") do (
     rem 從目標分支提取檔案內容
     git cat-file -p %TARGET_BRANCH%:"%%f" > "!target_file!" 2>nul
     if !errorlevel! neq 0 (
-        echo 警告: 無法提取檔案 %%f
+        echo ^(!file_count!^/%total_files%^) 警告^: 無法提取檔案 %%f
     ) else (
-        echo 提取: %%f
+        echo ^(!file_count!^/%total_files%^) 提取^: %%f
     )
 )
 
@@ -149,6 +160,6 @@ exit /b 0
 :cleanup
 rem 清理臨時檔案和目錄
 echo 清理臨時檔案...
-rem rmdir /S /Q "%TEMP_DIR%" 2>nul
+rmdir /S /Q "%TEMP_DIR%" 2>nul
 
 endlocal
