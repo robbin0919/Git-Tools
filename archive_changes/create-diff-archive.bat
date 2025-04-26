@@ -14,6 +14,8 @@ rem 日期: 2025-04-26
 rem
 rem 使用方法:
 rem   create-diff-archive.bat [輸出檔名] [源分支] [目標分支]
+rem   或
+rem   create-diff-archive.bat -F [輸出檔名] -S [源分支] -T [目標分支]
 rem
 rem 參數:
 rem   [輸出檔名]   - 壓縮檔檔案名稱，副檔名依壓縮指定決定 (預設: APP_SIT.zip)
@@ -22,9 +24,10 @@ rem   [目標分支]   - 比較的目標分支 (預設: SIT)
 rem
 rem 範例:
 rem   create-diff-archive.bat                         - 使用預設設定
-rem   create-diff-archive.bat changes.zip             - 自訂輸出檔名
-rem   create-diff-archive.bat changes.zip main        - 自訂檔名和源分支
-rem   create-diff-archive.bat changes.zip main dev    - 自訂所有參數
+rem   create-diff-archive.bat changes.zip             - 自訂輸出檔名 
+rem   create-diff-archive.bat -F changes.zip          - 使用具名參數指定輸出檔名
+rem   create-diff-archive.bat -S main -T dev          - 自訂源分支和目標分支
+rem   create-diff-archive.bat -F changes.zip -S main -T dev - 自訂所有參數
 rem ===================================================
 
 rem 檢查是否為說明請求
@@ -43,14 +46,35 @@ set OUTPUT_ARCHIVE=APP_SIT
 set SOURCE_BRANCH=master
 set TARGET_BRANCH=SIT
 
-rem 處理命令行參數
+rem 處理命令行參數 - 支援具名參數格式
+:parse_args
+if "%~1"=="" goto :args_done
+if /i "%~1"=="-F" (
+    set OUTPUT_ARCHIVE=%~2
+    shift & shift
+    goto :parse_args
+)
+if /i "%~1"=="-S" (
+    set SOURCE_BRANCH=%~2
+    shift & shift
+    goto :parse_args
+)
+if /i "%~1"=="-T" (
+    set TARGET_BRANCH=%~2
+    shift & shift
+    goto :parse_args
+)
+
+rem 舊參數格式的兼容性處理
 if not "%~1"=="" set OUTPUT_ARCHIVE=%~1
 if not "%~2"=="" set SOURCE_BRANCH=%~2
 if not "%~3"=="" set TARGET_BRANCH=%~3
+goto :args_done
 
+:args_done
 rem 提取副檔名
-set FILE_EXT=%~x1
-if "%FILE_EXT%"=="" set OUTPUT_ARCHIVE=%OUTPUT_ARCHIVE%.zip
+set FILE_EXT=%OUTPUT_ARCHIVE:~-4%
+if not "%FILE_EXT%"==".zip" if not "%FILE_EXT%"==".ZIP" set OUTPUT_ARCHIVE=%OUTPUT_ARCHIVE%.zip
 
 rem 使用 PowerShell 顯示中文訊息以避免亂碼
 powershell -Command "Write-Host '輸出檔案: %OUTPUT_ARCHIVE%' -ForegroundColor Cyan"
@@ -142,18 +166,22 @@ echo =====================
 echo.
 echo 將兩個分支間的差異檔案打包成壓縮檔，解決命令行參數長度限制問題。
 echo.
-echo 語法: create-diff-archive.bat [輸出檔名] [源分支] [目標分支]
+echo 語法:
+echo   create-diff-archive.bat [輸出檔名] [源分支] [目標分支]
+echo   或
+echo   create-diff-archive.bat -F [輸出檔名] -S [源分支] -T [目標分支]
 echo.
 echo 參數:
-echo   [輸出檔名]   - 壓縮檔檔案名稱，副檔名依壓縮指定決定 (預設: APP_SIT.zip)
-echo   [源分支]     - 比較的基準分支 (預設: master)
-echo   [目標分支]   - 比較的目標分支 (預設: SIT)
+echo   -F [輸出檔名]   - 壓縮檔檔案名稱，副檔名依壓縮指定決定 (預設: APP_SIT.zip)
+echo   -S [源分支]     - 比較的基準分支 (預設: master)
+echo   -T [目標分支]   - 比較的目標分支 (預設: SIT)
 echo.
 echo 範例:
 echo   create-diff-archive.bat                         - 使用預設設定
 echo   create-diff-archive.bat changes.zip             - 自訂輸出檔名
-echo   create-diff-archive.bat changes.zip main        - 自訂檔名和源分支
-echo   create-diff-archive.bat changes.zip main dev    - 自訂所有參數
+echo   create-diff-archive.bat -F changes.zip          - 使用具名參數指定輸出檔名
+echo   create-diff-archive.bat -S main -T dev          - 自訂源分支和目標分支
+echo   create-diff-archive.bat -F changes.zip -S main -T dev - 自訂所有參數
 echo.
 exit /b 0
 
