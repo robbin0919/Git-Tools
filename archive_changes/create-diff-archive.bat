@@ -172,6 +172,46 @@ powershell -Command "Compress-Archive -Path '%TEMP_DIR%\*' -DestinationPath '%OU
 
 echo 完成! 已創建 %OUTPUT_ARCHIVE%
 
+rem 在清理前生成總結報告
+echo.
+echo ===================================
+echo            執行總結報告            
+echo ===================================
+echo.
+rem 獲取 Repository 資訊
+for /f "tokens=*" %%r in ('git config --get remote.origin.url') do set repo_url=%%r
+for /f "tokens=*" %%n in ('git rev-parse --show-toplevel') do set repo_root=%%n
+rem 分開獲取分支名稱，避免使用 || 運算符
+git symbolic-ref --short HEAD >"%TEMP_DIR%\branch.tmp" 2>nul
+if %errorlevel% neq 0 (
+    git rev-parse HEAD >"%TEMP_DIR%\branch.tmp"
+)
+set /p current_branch=<"%TEMP_DIR%\branch.tmp"
+for /f "tokens=*" %%c in ('git rev-parse HEAD') do set current_commit=%%c
+
+echo Repository 資訊:
+echo   本地路徑: !repo_root!
+echo   遠端 URL: !repo_url!
+echo   當前分支: !current_branch!
+echo   當前提交: !current_commit:~0,8!
+echo.
+echo 打包資訊:
+echo   源分支: %SOURCE_BRANCH%
+echo   目標分支: %TARGET_BRANCH%
+echo   檔案總數: %total_files%
+echo   成功提取: !file_count!
+if exist "%OUTPUT_ARCHIVE%" (
+    for %%I in ("%OUTPUT_ARCHIVE%") do set zip_size=%%~zI
+    set /a zip_size_kb=!zip_size!/1024
+    echo   輸出檔案: %OUTPUT_ARCHIVE% ^(!zip_size_kb! KB^)
+) else (
+    echo   輸出檔案: 未建立
+)
+echo.
+echo 操作完成時間: %date% %time%
+echo ===================================
+echo.
+
 goto cleanup
 
 :showhelp
