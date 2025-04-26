@@ -17,7 +17,7 @@ rem   create-diff-archive.bat [輸出檔名] [源分支] [目標分支]
 rem   或
 rem   create-diff-archive.bat -F [輸出檔名] -S [源分支] -T [目標分支]
 rem
-rem 參數:
+rem 參數: 
 rem   [輸出檔名]   - 壓縮檔檔案名稱，副檔名依壓縮指定決定 (預設: APP_SIT.zip)
 rem   [源分支]     - 比較的基準分支 (預設: master)
 rem   [目標分支]   - 比較的目標分支 (預設: SIT)
@@ -90,7 +90,22 @@ powershell -Command "Write-Host '創建臨時目錄: %TEMP_DIR%' -ForegroundColor Gree
 
 rem 禁用 Git 路徑轉義，以便正確處理中文檔案名
 git config --local core.quotepath false
+rem 在獲取檔案清單前檢查源分支和目標分支是否存在
+powershell -Command "Write-Host '檢查分支是否存在...' -ForegroundColor Yellow"
 
+rem 檢查源分支是否存在
+git rev-parse --verify %SOURCE_BRANCH% >nul 2>&1
+if %errorlevel% neq 0 (
+    powershell -Command "Write-Host '錯誤: 源分支 %SOURCE_BRANCH% 不存在!' -ForegroundColor Red"
+    goto cleanup
+)
+
+rem 檢查目標分支是否存在
+git rev-parse --verify %TARGET_BRANCH% >nul 2>&1
+if %errorlevel% neq 0 (
+    powershell -Command "Write-Host '錯誤: 目標分支 %TARGET_BRANCH% 不存在!' -ForegroundColor Red"
+    goto cleanup
+)
 rem 獲取檔案清單到臨時檔案 (UTF-8 編碼)
 powershell -Command "Write-Host '正在取得變更檔案清單...' -ForegroundColor Yellow"
 git diff-tree -r --name-only --diff-filter=ACMRT %SOURCE_BRANCH% %TARGET_BRANCH% > "%TEMP_DIR%\filelist_utf8.txt"
