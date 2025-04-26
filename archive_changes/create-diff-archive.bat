@@ -76,69 +76,69 @@ rem 提取副檔名
 set FILE_EXT=%OUTPUT_ARCHIVE:~-4%
 if not "%FILE_EXT%"==".zip" if not "%FILE_EXT%"==".ZIP" set OUTPUT_ARCHIVE=%OUTPUT_ARCHIVE%.zip
 
-rem 使用 PowerShell 顯示中文訊息以避免亂碼
-powershell -Command "Write-Host '輸出檔案: %OUTPUT_ARCHIVE%' -ForegroundColor Cyan"
-powershell -Command "Write-Host '源分支: %SOURCE_BRANCH%' -ForegroundColor Cyan"
-powershell -Command "Write-Host '目標分支: %TARGET_BRANCH%' -ForegroundColor Cyan"
+rem 使用 echo 顯示訊息以簡化輸出
+echo 輸出檔案: %OUTPUT_ARCHIVE%
+echo 源分支: %SOURCE_BRANCH%
+echo 目標分支: %TARGET_BRANCH%
 
 rem 使用系統臨時目錄
 set TEMP_DIR=%TEMP%\git_archive_%RANDOM%
 
 rem 創建臨時目錄
 mkdir "%TEMP_DIR%" 2>nul
-powershell -Command "Write-Host '創建臨時目錄: %TEMP_DIR%' -ForegroundColor Green"
+echo 創建臨時目錄: %TEMP_DIR%
 
 rem 禁用 Git 路徑轉義，以便正確處理中文檔案名
 git config --local core.quotepath false
 rem 在獲取檔案清單前檢查源分支和目標分支是否存在
-powershell -Command "Write-Host '檢查分支是否存在...' -ForegroundColor Yellow"
+echo 檢查分支是否存在...
 
 rem 檢查源分支是否存在
 git rev-parse --verify %SOURCE_BRANCH% >nul 2>&1
 if %errorlevel% neq 0 (
-    powershell -Command "Write-Host '錯誤: 源分支 %SOURCE_BRANCH% 不存在!' -ForegroundColor Red"
+    echo 錯誤^: 源分支 %SOURCE_BRANCH% 不存在!
     goto cleanup
 )
 
 rem 檢查目標分支是否存在
 git rev-parse --verify %TARGET_BRANCH% >nul 2>&1
 if %errorlevel% neq 0 (
-    powershell -Command "Write-Host '錯誤: 目標分支 %TARGET_BRANCH% 不存在!' -ForegroundColor Red"
+    echo 錯誤^: 目標分支 %TARGET_BRANCH% 不存在!
     goto cleanup
 )
 rem 獲取檔案清單到臨時檔案 (UTF-8 編碼)
-powershell -Command "Write-Host '正在取得變更檔案清單...' -ForegroundColor Yellow"
+echo 正在取得變更檔案清單...
 git diff-tree -r --name-only --diff-filter=ACMRT %SOURCE_BRANCH% %TARGET_BRANCH% > "%TEMP_DIR%\filelist_utf8.txt"
 
 rem 將 UTF-8 編碼的檔案清單轉換為 BIG5 編碼
-powershell -Command "Write-Host '正在轉換檔案清單編碼 (UTF-8 → BIG5)...' -ForegroundColor Yellow"
+echo 正在轉換檔案清單編碼 ^(UTF^-8 ^→ BIG5^)...
 powershell -Command "$content = Get-Content -Path '%TEMP_DIR%\filelist_utf8.txt' -Encoding UTF8; [System.IO.File]::WriteAllLines('%TEMP_DIR%\filelist.txt', $content, [System.Text.Encoding]::GetEncoding(950))"
 
 rem 檢查檔案清單是否為空
 for %%I in ("%TEMP_DIR%\filelist.txt") do if %%~zI==0 (
-    powershell -Command "Write-Host '沒有發現檔案變更，結束處理。' -ForegroundColor Red"
+    echo 沒有發現檔案變更，結束處理。
     goto cleanup
 )
 
 rem 獲取總檔案數量
-powershell -Command "Write-Host '計算檔案總數...' -ForegroundColor Yellow"
+echo 計算檔案總數...
 for /f %%A in ('type "%TEMP_DIR%\filelist.txt" ^| find /c /v ""') do set total_files=%%A
-powershell -Command "Write-Host ('共發現 ' + %total_files% + ' 個變更檔案') -ForegroundColor Yellow"
+echo 共發現 %total_files% 個變更檔案
 
 rem 初始化檔案計數器
 set file_count=0
 
 rem 提取檔案到臨時目錄
-powershell -Command "Write-Host '正在從 %TARGET_BRANCH% 分支提取檔案...' -ForegroundColor Yellow"
+echo 正在從 %TARGET_BRANCH% 分支提取檔案...
 
 rem 保存當前分支名稱
 for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set CURRENT_BRANCH=%%b
-powershell -Command "Write-Host ('當前分支: ' + '%CURRENT_BRANCH%') -ForegroundColor Cyan"
+echo 當前分支: %CURRENT_BRANCH%
 
 rem 檢查工作區是否乾淨（只用於提示）
 git diff --quiet
 if %errorlevel% neq 0 (
-    powershell -Command "Write-Host '警告: 工作區有未提交的變更，但這不會影響檔案提取。' -ForegroundColor Yellow"
+    echo 警告: 工作區有未提交的變更，但這不會影響檔案提取。
 )
 
 rem 逐行讀取檔案清單並處理
