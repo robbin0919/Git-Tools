@@ -189,6 +189,7 @@ if %errorlevel% neq 0 (
 set /p current_branch=<"%TEMP_DIR%\branch.tmp"
 for /f "tokens=*" %%c in ('git rev-parse HEAD') do set current_commit=%%c
 
+
 echo Repository 資訊:
 echo   本地路徑: !repo_root!
 echo   遠端 URL: !repo_url!
@@ -222,6 +223,15 @@ if exist "%OUTPUT_ARCHIVE%" (
 
 echo 操作完成時間: %date% %time%
 echo ===================================
+echo.
+echo 開發資訊:
+echo   主要開發: Robbie Lee
+echo   最後修改時間: 2025-04-26
+echo.
+echo   詳細使用說明:
+echo   create-diff-archive.bat --help
+echo   或
+echo   create-diff-archive.bat /?
 echo.
 
 goto cleanup
