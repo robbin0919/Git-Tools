@@ -9,7 +9,7 @@ rem ===================================================
 rem Git 變更檔案打包工具 (create-diff-archive.bat)
 rem ===================================================
 rem 功能: 將兩個分支間的差異檔案打包成壓縮檔
-rem 作者: Your Name
+rem 作者: Robbie Lee 
 rem 日期: 2025-04-26
 rem
 rem 使用方法:
@@ -201,13 +201,25 @@ echo   目標分支: %TARGET_BRANCH%
 echo   檔案總數: %total_files%
 echo   成功提取: !file_count!
 if exist "%OUTPUT_ARCHIVE%" (
-    for %%I in ("%OUTPUT_ARCHIVE%") do set zip_size=%%~zI
+    rem 獲取檔案完整路徑
+    for %%I in ("%OUTPUT_ARCHIVE%") do (
+        set zip_size=%%~zI
+        set zip_full_path=%%~fI
+        set zip_date=%%~tI
+    )
     set /a zip_size_kb=!zip_size!/1024
     echo   輸出檔案: %OUTPUT_ARCHIVE% ^(!zip_size_kb! KB^)
+    echo   完整路徑: !zip_full_path!
+    echo   檔案時間: !zip_date!
+    echo   檔案類型: ZIP 壓縮檔 ^(包含 !file_count! 個檔案^)
+    echo.
+    echo   ※ 壓縮檔已建立完成，可直接使用。
+    echo   ※ 如需查看內容，可透過檔案總管或解壓縮工具開啟檔案。
 ) else (
     echo   輸出檔案: 未建立
+    echo   原因: 可能是在處理過程中發生錯誤或使用者中斷操作。
 )
-echo.
+
 echo 操作完成時間: %date% %time%
 echo ===================================
 echo.
