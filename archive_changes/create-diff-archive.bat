@@ -81,13 +81,13 @@ if %errorlevel% neq 0 (
     echo 警告: 工作區有未提交的變更，但這不會影響檔案提取。
 )
 
-rem 統一使用 git show 命令提取檔案
+rem 統一使用 git cat-file 命令提取檔案 (更適合二進制檔案)
 for /F "tokens=*" %%f in (filelist.txt) do (
     rem 確保目錄存在
     for %%d in ("!TEMP_DIR!\%%~pf") do if not exist "%%~d" mkdir "%%~d"
     
-    rem 從目標分支提取檔案內容
-    git show %TARGET_BRANCH%:"%%f" > "!TEMP_DIR!\%%f"
+    rem 從目標分支提取檔案內容 (使用二進制安全的方法)
+    git cat-file -p %TARGET_BRANCH%:"%%f" > "!TEMP_DIR!\%%f"
     if !errorlevel! neq 0 echo 警告: 無法提取檔案 %%f
 )
 
