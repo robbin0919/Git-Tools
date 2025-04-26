@@ -75,37 +75,20 @@ rem 保存當前分支名稱
 for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set CURRENT_BRANCH=%%b
 echo 當前分支: %CURRENT_BRANCH%
 
-rem 檢查工作區是否乾淨
+rem 檢查工作區是否乾淨（只用於提示）
 git diff --quiet
 if %errorlevel% neq 0 (
-    echo 警告: 工作區有未提交的變更，將使用 git show 命令代替切換分支。
+    echo 警告: 工作區有未提交的變更，但這不會影響檔案提取。
+)
+
+rem 統一使用 git show 命令提取檔案
+for /F "tokens=*" %%f in (filelist.txt) do (
+    rem 確保目錄存在
+    for %%d in ("!TEMP_DIR!\%%~pf") do if not exist "%%~d" mkdir "%%~d"
     
-    for /F "tokens=*" %%f in (filelist.txt) do (
-        rem 確保目錄存在
-        for %%d in ("!TEMP_DIR!\%%~pf") do if not exist "%%~d" mkdir "%%~d"
-        
-        rem 從目標分支提取檔案內容
-        git show %TARGET_BRANCH%:"%%f" > "!TEMP_DIR!\%%f"
-        if !errorlevel! neq 0 echo 警告: 無法提取檔案 %%f
-    )
-) else (
-    rem 切換到目標分支
-    echo 切換到 %TARGET_BRANCH% 分支...
-    git checkout %TARGET_BRANCH% --quiet
-    
-    rem 複製檔案到臨時目錄
-    for /F "tokens=*" %%f in (filelist.txt) do (
-        rem 確保目錄存在
-        for %%d in ("!TEMP_DIR!\%%~pf") do if not exist "%%~d" mkdir "%%~d"
-        
-        rem 從工作區複製檔案
-        copy "%%f" "!TEMP_DIR!\%%f" > nul
-        if !errorlevel! neq 0 echo 警告: 無法複製檔案 %%f
-    )
-    
-    rem 切換回原始分支
-    echo 切換回 %CURRENT_BRANCH% 分支...
-    git checkout %CURRENT_BRANCH% --quiet
+    rem 從目標分支提取檔案內容
+    git show %TARGET_BRANCH%:"%%f" > "!TEMP_DIR!\%%f"
+    if !errorlevel! neq 0 echo 警告: 無法提取檔案 %%f
 )
 
 rem 刪除現有的 zip 檔案(如果存在)
