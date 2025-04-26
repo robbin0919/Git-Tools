@@ -1,4 +1,8 @@
 @echo off
+rem 確保使用 UTF-8 編碼並等待編碼生效
+rem chcp 65001 >nul
+rem 添加短暫延遲確保編碼生效
+rem ping -n 1 127.0.0.1 >nul
 setlocal enabledelayedexpansion
 
 rem ===================================================
@@ -48,23 +52,32 @@ rem 提取副檔名
 set FILE_EXT=%~x1
 if "%FILE_EXT%"=="" set OUTPUT_ARCHIVE=%OUTPUT_ARCHIVE%.zip
 
-echo 輸出檔案: %OUTPUT_ARCHIVE%
-echo 源分支: %SOURCE_BRANCH%
-echo 目標分支: %TARGET_BRANCH%
+rem 使用 PowerShell 顯示中文訊息以避免亂碼
+powershell -Command "Write-Host '輸出檔案: %OUTPUT_ARCHIVE%' -ForegroundColor Cyan"
+powershell -Command "Write-Host '源分支: %SOURCE_BRANCH%' -ForegroundColor Cyan"
+powershell -Command "Write-Host '目標分支: %TARGET_BRANCH%' -ForegroundColor Cyan"
 
-set TEMP_DIR=temp_archive_%RANDOM%
+rem 使用系統臨時目錄
+set TEMP_DIR=%TEMP%\git_archive_%RANDOM%
 
 rem 創建臨時目錄
-mkdir %TEMP_DIR%
-echo 創建臨時目錄: %TEMP_DIR%
+mkdir "%TEMP_DIR%" 2>nul
+powershell -Command "Write-Host '創建臨時目錄: %TEMP_DIR%' -ForegroundColor Green"
 
-rem 獲取檔案清單到臨時檔案
-echo 正在取得變更檔案清單...
-git diff-tree -r --name-only --diff-filter=ACMRT %SOURCE_BRANCH% %TARGET_BRANCH% > filelist.txt
+rem 禁用 Git 路徑轉義，以便正確處理中文檔案名
+git config --local core.quotepath false
+
+rem 獲取檔案清單到臨時檔案 (UTF-8 編碼)
+powershell -Command "Write-Host '正在取得變更檔案清單...' -ForegroundColor Yellow"
+git diff-tree -r --name-only --diff-filter=ACMRT %SOURCE_BRANCH% %TARGET_BRANCH% > "%TEMP_DIR%\filelist_utf8.txt"
+
+rem 將 UTF-8 編碼的檔案清單轉換為 BIG5 編碼
+powershell -Command "Write-Host '正在轉換檔案清單編碼 (UTF-8 → BIG5)...' -ForegroundColor Yellow"
+powershell -Command "$content = Get-Content -Path '%TEMP_DIR%\filelist_utf8.txt' -Encoding UTF8; [System.IO.File]::WriteAllLines('%TEMP_DIR%\filelist.txt', $content, [System.Text.Encoding]::GetEncoding(950))"
 
 rem 檢查檔案清單是否為空
-for %%I in (filelist.txt) do if %%~zI==0 (
-    echo 沒有發現檔案變更，結束處理。
+for %%I in ("%TEMP_DIR%\filelist.txt") do if %%~zI==0 (
+    powershell -Command "Write-Host '沒有發現檔案變更，結束處理。' -ForegroundColor Red"
     goto cleanup
 )
 
@@ -81,22 +94,31 @@ if %errorlevel% neq 0 (
     echo 警告: 工作區有未提交的變更，但這不會影響檔案提取。
 )
 
-rem 統一使用 git cat-file 命令提取檔案 (更適合二進制檔案)
-for /F "tokens=*" %%f in (filelist.txt) do (
-    rem 確保目錄存在
-    for %%d in ("!TEMP_DIR!\%%~pf") do if not exist "%%~d" mkdir "%%~d"
+rem 逐行讀取檔案清單並處理
+for /F "usebackq tokens=*" %%f in ("%TEMP_DIR%\filelist.txt") do (
+    rem 設置目標檔案路徑
+    set "target_file=!TEMP_DIR!\%%f"
     
-    rem 從目標分支提取檔案內容 (使用二進制安全的方法)
-    git cat-file -p %TARGET_BRANCH%:"%%f" > "!TEMP_DIR!\%%f"
-    if !errorlevel! neq 0 echo 警告: 無法提取檔案 %%f
+    rem 創建目標檔案的父目錄
+    set "target_dir=!target_file:~0,-1!"
+    for %%i in ("!target_dir!") do set "parent_dir=%%~dpi"
+    if not exist "!parent_dir!" mkdir "!parent_dir!" 2>nul
+    
+    rem 從目標分支提取檔案內容
+    git cat-file -p %TARGET_BRANCH%:"%%f" > "!target_file!" 2>nul
+    if !errorlevel! neq 0 (
+        echo 警告: 無法提取檔案 %%f
+    ) else (
+        echo 提取: %%f
+    )
 )
 
 rem 刪除現有的 zip 檔案(如果存在)
-if exist %OUTPUT_ARCHIVE% del %OUTPUT_ARCHIVE%
+if exist "%OUTPUT_ARCHIVE%" del "%OUTPUT_ARCHIVE%"
 
 rem 使用 PowerShell 創建 ZIP 檔案
 echo 正在創建 ZIP 檔案 %OUTPUT_ARCHIVE%...
-powershell -Command "Compress-Archive -Path '%TEMP_DIR%\*' -DestinationPath '%OUTPUT_ARCHIVE%'"
+powershell -Command "Compress-Archive -Path '%TEMP_DIR%\*' -DestinationPath '%OUTPUT_ARCHIVE%' -Force"
 
 echo 完成! 已創建 %OUTPUT_ARCHIVE%
 
@@ -127,7 +149,6 @@ exit /b 0
 :cleanup
 rem 清理臨時檔案和目錄
 echo 清理臨時檔案...
-del filelist.txt
-rmdir /S /Q %TEMP_DIR%
+rem rmdir /S /Q "%TEMP_DIR%" 2>nul
 
 endlocal
