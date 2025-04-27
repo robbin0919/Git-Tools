@@ -195,6 +195,41 @@ echo   本地路徑: !repo_root!
 echo   遠端 URL: !repo_url!
 echo   當前分支: !current_branch!
 echo   當前提交: !current_commit:~0,8!
+
+rem 新增同步資訊區塊
+echo.
+echo 同步資訊:
+set "last_fetch_time=未知"
+set "last_pull_time=未知"
+set "has_pull_time=false"
+
+rem 檢查最後一次 fetch 時間
+if exist ".git\FETCH_HEAD" (
+    for /f "tokens=*" %%t in ('powershell -Command "Get-Item '.git\FETCH_HEAD' | Select-Object -ExpandProperty LastWriteTime"') do (
+        set "last_fetch_time=%%t"
+    )
+)
+
+rem 檢查最後一次 pull 時間 
+if exist ".git\ORIG_HEAD" (
+    for /f "tokens=*" %%p in ('powershell -Command "Get-Item '.git\ORIG_HEAD' | Select-Object -ExpandProperty LastWriteTime"') do (
+        set "last_pull_time=%%p"
+        set "has_pull_time=true"
+    )
+)
+
+echo   最後 Fetch 時間: !last_fetch_time!
+echo   最後 Pull 時間: !last_pull_time!
+
+rem 計算並顯示時間差
+powershell -Command "$fetchTime = (Get-Item '.git\FETCH_HEAD' -ErrorAction SilentlyContinue).LastWriteTime; if($fetchTime) { $diff = (Get-Date) - $fetchTime; Write-Host '   Fetch 距今: ' $diff.Days '天' $diff.Hours '小時' $diff.Minutes '分鐘前' }"
+
+if "!has_pull_time!"=="true" (
+    powershell -Command "$pullTime = (Get-Item '.git\ORIG_HEAD' -ErrorAction SilentlyContinue).LastWriteTime; if($pullTime) { $diff = (Get-Date) - $pullTime; Write-Host '   Pull 距今: ' $diff.Days '天' $diff.Hours '小時' $diff.Minutes '分鐘前' }"
+) else (
+    echo   Pull 距今: 無法確定
+)
+
 echo.
 echo 打包資訊:
 echo   源分支: %SOURCE_BRANCH%
