@@ -1,4 +1,4 @@
-# Git 變更檔案打包工具 - 運行流程圖
+# Git 變更檔案打包工具 - 流程圖
 
 ```mermaid
 flowchart TD
