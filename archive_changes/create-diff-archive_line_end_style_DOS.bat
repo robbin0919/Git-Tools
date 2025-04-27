@@ -168,7 +168,7 @@ rem 锣传┮Τゅセ郎传︽才 (Unix LF -> DOS CRLF)
 echo タ锣传ゅ郎传︽才 ^(Unix -^> DOS^)...
 
 rem ヘ魁ミ弘絋 PowerShell 竲セ
-echo $fileTypes = @('.vw','.tps','.trg','.tab','.seq','.prc','.spc','.bdy','.fnc','.idx','.txt','.xml','.html','.htm','.css','.js','.java','.cs','.cpp','.h','.c','.php','.py','.bat','.cmd','.ps1','.json','.config','.yml','.yaml','.md','.sql') > "convert_eol.ps1"
+echo $fileTypes = @('.vw','.tps','.trg','.tab','.seq','.prc','.spc','.bdy','.fnc','.idx','.txt','.xml','.html','.htm','.css','.js','.java','.aspx','html','.cs','.vb','.cpp','.h','.c','.php','.py','.bat','.cmd','.ps1','.json','.config','.yml','.yaml','.md','.sql') > "convert_eol.ps1"
 echo $count = 0 >> "convert_eol.ps1"
 echo $errorCount = 0 >> "convert_eol.ps1"
 echo $changedCount = 0 >> "convert_eol.ps1"
