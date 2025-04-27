@@ -167,44 +167,38 @@ rem filepath: d:\LAB\Git-Tools\archive_changes\create-diff-archive_line_end_styl
 rem 轉換所有文本檔案的換行符 (Unix LF -> DOS CRLF)
 echo 正在轉換文字檔案換行符 ^(Unix -^> DOS^)...
 
-rem 設定要處理的文件類型
-set FILE_TYPES=.txt .xml .html .htm .css .js .java .cs .cpp .h .c .php .py .bat .cmd .ps1 .json .config .yml .yaml .md .sql
+rem 建立簡化版的 PowerShell 腳本
+echo $fileTypes = @('.txt','.xml','.html','.htm','.css','.js','.java','.cs','.cpp','.h','.c','.php','.py','.bat','.cmd','.ps1','.json','.config','.yml','.yaml','.md','.sql') > "%TEMP_DIR%\convert.ps1"
+echo $count = 0 >> "%TEMP_DIR%\convert.ps1"
+echo $errorCount = 0 >> "%TEMP_DIR%\convert.ps1"
+echo $changedCount = 0 >> "%TEMP_DIR%\convert.ps1"
+echo $files = Get-ChildItem -Path '%TEMP_DIR%' -Recurse -File ^| Where-Object { $fileTypes -contains $_.Extension.ToLower() } >> "%TEMP_DIR%\convert.ps1"
+echo Write-Host "找到" $files.Count "個可能的文字檔案需要檢查" >> "%TEMP_DIR%\convert.ps1"
+echo foreach($file in $files) { >> "%TEMP_DIR%\convert.ps1"
+echo   try { >> "%TEMP_DIR%\convert.ps1"
+echo     $count++ >> "%TEMP_DIR%\convert.ps1"
+echo     $content = [System.IO.File]::ReadAllText($file.FullName) >> "%TEMP_DIR%\convert.ps1"
+echo     if ($content -match "[^\r]\n") { >> "%TEMP_DIR%\convert.ps1"
+echo       $newContent = $content -replace "([^\r])\n", "`$1`r`n" >> "%TEMP_DIR%\convert.ps1"
+echo       [System.IO.File]::WriteAllText($file.FullName, $newContent) >> "%TEMP_DIR%\convert.ps1"
+echo       $changedCount++ >> "%TEMP_DIR%\convert.ps1"
+echo       if ($changedCount %% 10 -eq 0) { >> "%TEMP_DIR%\convert.ps1"
+echo         Write-Host "已轉換 $changedCount 個檔案..." >> "%TEMP_DIR%\convert.ps1"
+echo       } >> "%TEMP_DIR%\convert.ps1"
+echo     } else { >> "%TEMP_DIR%\convert.ps1"
+echo       Write-Host "檔案 $($file.Name) 已經是 CRLF 格式，不需轉換" -ForegroundColor Green >> "%TEMP_DIR%\convert.ps1"
+echo     } >> "%TEMP_DIR%\convert.ps1"
+echo   } catch { >> "%TEMP_DIR%\convert.ps1"
+echo     $errorCount++ >> "%TEMP_DIR%\convert.ps1"
+echo   } >> "%TEMP_DIR%\convert.ps1"
+echo } >> "%TEMP_DIR%\convert.ps1"
+echo Write-Host "檢查完成！共檢查了 $count 個檔案，轉換了 $changedCount 個檔案的換行符。(錯誤: $errorCount 個)" >> "%TEMP_DIR%\convert.ps1"
 
-rem 建立一個臨時目錄用於轉換過程
-set EOL_TEMP=%TEMP_DIR%\eol_temp
-mkdir "%EOL_TEMP%" 2>nul
+rem 執行 PowerShell 腳本
+powershell -ExecutionPolicy Bypass -Command "& '%TEMP_DIR%\convert.ps1'"
 
-rem 計數器和進度顯示計數器
-set converted_count=0
-set progress_count=0
-
-rem 遍歷所有文件
-for /R "%TEMP_DIR%" %%F in (*) do (
-    set "process_file=0"
-    set "file_ext=%%~xF"
-    
-    rem 檢查是否為指定的文件類型
-    for %%E in (%FILE_TYPES%) do (
-        if /i "!file_ext!"=="%%E" set process_file=1
-    )
-    
-    if !process_file!==1 (
-        rem 使用 type 命令進行換行符轉換（Windows 自動轉換）
-        type "%%F" > "%EOL_TEMP%\temp_file"
-        copy /Y "%EOL_TEMP%\temp_file" "%%F" >nul
-        set /a converted_count+=1
-        set /a progress_count+=1
-        
-        if !progress_count!==10 (
-            echo 已處理 !converted_count! 個檔案...
-            set progress_count=0
-        )
-    )
-)
-
-echo 完成！共轉換了 !converted_count! 個文件的換行符。
-del "%EOL_TEMP%\temp_file" 2>nul
-rmdir "%EOL_TEMP%" 2>nul
+rem 刪除臨時腳本
+del "%TEMP_DIR%\convert.ps1" >nul 2>&1
 
 rem 刪除現有的 zip 檔案(如果存在)
 if exist "%OUTPUT_ARCHIVE%" del "%OUTPUT_ARCHIVE%"
