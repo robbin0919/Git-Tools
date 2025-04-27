@@ -163,6 +163,49 @@ for /F "usebackq tokens=*" %%f in ("%TEMP_DIR%\filelist.txt") do (
     )
 )
 
+rem filepath: d:\LAB\Git-Tools\archive_changes\create-diff-archive_line_end_style_DOS.bat
+rem 轉換所有文本檔案的換行符 (Unix LF -> DOS CRLF)
+echo 正在轉換文字檔案換行符 ^(Unix -^> DOS^)...
+
+rem 設定要處理的文件類型
+set FILE_TYPES=.txt .xml .html .htm .css .js .java .cs .cpp .h .c .php .py .bat .cmd .ps1 .json .config .yml .yaml .md .sql
+
+rem 建立一個臨時目錄用於轉換過程
+set EOL_TEMP=%TEMP_DIR%\eol_temp
+mkdir "%EOL_TEMP%" 2>nul
+
+rem 計數器和進度顯示計數器
+set converted_count=0
+set progress_count=0
+
+rem 遍歷所有文件
+for /R "%TEMP_DIR%" %%F in (*) do (
+    set "process_file=0"
+    set "file_ext=%%~xF"
+    
+    rem 檢查是否為指定的文件類型
+    for %%E in (%FILE_TYPES%) do (
+        if /i "!file_ext!"=="%%E" set process_file=1
+    )
+    
+    if !process_file!==1 (
+        rem 使用 type 命令進行換行符轉換（Windows 自動轉換）
+        type "%%F" > "%EOL_TEMP%\temp_file"
+        copy /Y "%EOL_TEMP%\temp_file" "%%F" >nul
+        set /a converted_count+=1
+        set /a progress_count+=1
+        
+        if !progress_count!==10 (
+            echo 已處理 !converted_count! 個檔案...
+            set progress_count=0
+        )
+    )
+)
+
+echo 完成！共轉換了 !converted_count! 個文件的換行符。
+del "%EOL_TEMP%\temp_file" 2>nul
+rmdir "%EOL_TEMP%" 2>nul
+
 rem 刪除現有的 zip 檔案(如果存在)
 if exist "%OUTPUT_ARCHIVE%" del "%OUTPUT_ARCHIVE%"
 
