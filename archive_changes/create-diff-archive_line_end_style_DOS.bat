@@ -106,6 +106,84 @@ if %errorlevel% neq 0 (
     echo 錯誤^: 目標分支 %TARGET_BRANCH% 不存在!
     goto cleanup
 )
+
+rem ===== 新增同步功能開始 =====
+echo.
+echo ===================================
+echo      與遠端Repository同步中...      
+echo ===================================
+echo.
+
+rem 儲存目前分支名稱，稍後會返回此分支
+for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set ORIGINAL_BRANCH=%%b
+echo 當前工作分支: %ORIGINAL_BRANCH%
+
+rem 檢查工作區是否乾淨
+git diff --quiet
+set GIT_CLEAN_WORKSPACE=%errorlevel%
+if %GIT_CLEAN_WORKSPACE% neq 0 (
+    echo 警告: 本機工作區有未提交的變更，將在同步後還原。
+    git stash push -m "自動暫存於 %date% %time%" >nul 2>&1
+)
+
+rem 先獲取所有遠端分支資訊
+echo 正在獲取遠端分支資訊...
+git remote update origin --prune
+if %errorlevel% neq 0 (
+    echo 警告: 無法連接遠端倉庫，將繼續使用本地版本。
+) else (
+    echo 成功獲取遠端分支資訊。
+    
+    rem 同步源分支
+    echo.
+    echo 正在同步源分支 %SOURCE_BRANCH%...
+    git checkout %SOURCE_BRANCH% >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo 警告: 無法切換至源分支 %SOURCE_BRANCH%，跳過同步此分支。
+    ) else (
+        git pull origin %SOURCE_BRANCH% --ff-only
+        if %errorlevel% neq 0 (
+            echo 警告: 無法使用快速前進合併方式更新 %SOURCE_BRANCH%，嘗試正常合併...
+            git pull origin %SOURCE_BRANCH%
+        )
+    )
+    
+    rem 同步目標分支
+    echo.
+    echo 正在同步目標分支 %TARGET_BRANCH%...
+    git checkout %TARGET_BRANCH% >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo 警告: 無法切換至目標分支 %TARGET_BRANCH%，跳過同步此分支。
+    ) else (
+        git pull origin %TARGET_BRANCH% --ff-only
+        if %errorlevel% neq 0 (
+            echo 警告: 無法使用快速前進合併方式更新 %TARGET_BRANCH%，嘗試正常合併...
+            git pull origin %TARGET_BRANCH%
+        )
+    )
+    
+    rem 返回原本的分支
+    echo.
+    echo 返回原始工作分支: %ORIGINAL_BRANCH%
+    git checkout %ORIGINAL_BRANCH% >nul 2>&1
+    
+    rem 如果原本有暫存變更，還原之
+    if %GIT_CLEAN_WORKSPACE% neq 0 (
+        git stash pop >nul 2>&1
+        if %errorlevel% neq 0 (
+            echo 警告: 還原暫存的變更失敗。暫存內容仍保留在 stash 中。
+        ) else (
+            echo 已還原暫存的工作區變更。
+        )
+    )
+)
+echo.
+echo ===================================
+echo        同步完成，開始比對檔案       
+echo ===================================
+echo.
+rem ===== 新增同步功能結束 =====
+
 rem 獲取檔案清單到臨時檔案 (UTF-8 編碼)
 echo 正在取得變更檔案清單...
 git diff-tree -r --name-only --diff-filter=ACMRT %SOURCE_BRANCH% %TARGET_BRANCH% > "%TEMP_DIR%\filelist_utf8.txt"
