@@ -389,7 +389,6 @@ if %errorlevel% neq 0 (
 set /p current_branch=<"%TEMP_DIR%\branch.tmp"
 for /f "tokens=*" %%c in ('git rev-parse HEAD') do set current_commit=%%c
 
-
 echo Repository 資訊:
 echo   本地路徑: !repo_root!
 echo   遠端 URL: !repo_url!
@@ -399,6 +398,38 @@ echo   當前提交: !current_commit:~0,8!
 rem 新增同步資訊區塊
 echo.
 echo 同步資訊:
+if defined GIT_REMOTE_ERROR (
+    if !GIT_REMOTE_ERROR! equ 0 (
+        echo   同步狀態: 成功
+    ) else (
+        echo   同步狀態: 失敗 ^(錯誤碼: !GIT_REMOTE_ERROR!^)
+    )
+
+    if !GIT_REMOTE_ERROR! neq 0 (
+        echo   同步結果: 使用本地版本進行比較 ^(無法連接遠端^)
+    ) else (
+        echo   同步結果: 成功與遠端同步
+        
+        if defined LOCAL_SOURCE_EXISTS (
+            if !LOCAL_SOURCE_EXISTS! equ 0 (
+                echo   源分支同步: 已同步
+            ) else (
+                echo   源分支同步: 僅使用遠端版本
+            )
+        )
+        
+        if defined LOCAL_TARGET_EXISTS (
+            if !LOCAL_TARGET_EXISTS! equ 0 (
+                echo   目標分支同步: 已同步
+            ) else (
+                echo   目標分支同步: 僅使用遠端版本
+            )
+        )
+    )
+) else (
+    echo   同步狀態: 未執行同步 ^(跳過^)
+)
+
 set "last_fetch_time=未知"
 set "last_pull_time=未知"
 set "has_pull_time=false"
@@ -432,8 +463,52 @@ if "!has_pull_time!"=="true" (
 
 echo.
 echo 打包資訊:
-echo   源分支: %SOURCE_BRANCH%
-echo   目標分支: %TARGET_BRANCH%
+
+rem 顯示源分支狀態 - 使用單行顯示方式
+if defined LOCAL_SOURCE_EXISTS (
+    if !LOCAL_SOURCE_EXISTS! equ 0 (
+        set "source_local_status=本地存在, "
+    ) else (
+        set "source_local_status=本地不存在, "
+    )
+) else (
+    set "source_local_status=本地狀態未知, "
+)
+
+if defined REMOTE_SOURCE_EXISTS (
+    if !REMOTE_SOURCE_EXISTS! equ 0 (
+        set "source_remote_status=遠端存在"
+    ) else (
+        set "source_remote_status=遠端不存在"
+    )
+) else (
+    set "source_remote_status=遠端狀態未知"
+)
+echo   源分支: %SOURCE_BRANCH% ^(%source_local_status%%source_remote_status%^)
+
+rem 顯示目標分支狀態 - 使用單行顯示方式
+if defined LOCAL_TARGET_EXISTS (
+    if !LOCAL_TARGET_EXISTS! equ 0 (
+        set "target_local_status=本地存在, "
+    ) else (
+        set "target_local_status=本地不存在, "
+    )
+) else (
+    set "target_local_status=本地狀態未知, "
+)
+
+if defined REMOTE_TARGET_EXISTS (
+    if !REMOTE_TARGET_EXISTS! equ 0 (
+        set "target_remote_status=遠端存在"
+    ) else (
+        set "target_remote_status=遠端不存在"
+    )
+) else (
+    set "target_remote_status=遠端狀態未知"
+)
+echo   目標分支: %TARGET_BRANCH% ^(%target_local_status%%target_remote_status%^)
+
+rem 顯示檔案總數和成功提取的檔案數
 echo   檔案總數: %total_files%
 echo   成功提取: !file_count!
 if exist "%OUTPUT_ARCHIVE%" (
