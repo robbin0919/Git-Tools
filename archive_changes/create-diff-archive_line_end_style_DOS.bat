@@ -10,7 +10,7 @@ rem Git 變更檔案打包工具 (create-diff-archive.bat)
 rem ===================================================
 rem 功能: 將兩個分支間的差異檔案打包成壓縮檔
 rem 作者: Robbie Lee 
-rem 日期: 2025-04-26
+rem 日期: 2025-04-29
 rem
 rem 使用方法:
 rem   create-diff-archive.bat [輸出檔名] [源分支] [目標分支]
@@ -536,7 +536,7 @@ echo ===================================
 echo.
 echo 開發資訊:
 echo   主要開發: Robbie Lee
-echo   最後修改時間: 2025-04-26
+echo   最後修改時間: 2025-04-29
 echo.
 echo   詳細使用說明:
 echo   create-diff-archive.bat --help
