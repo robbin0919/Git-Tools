@@ -107,7 +107,7 @@ if %errorlevel% neq 0 (
     goto cleanup
 )
 
-rem ===== 新增同步功能開始 =====
+rem ===== 改進的同步功能 =====
 echo.
 echo ===================================
 echo      與遠端Repository同步中...      
@@ -129,18 +129,63 @@ if %GIT_CLEAN_WORKSPACE% neq 0 (
 rem 先獲取所有遠端分支資訊
 echo 正在獲取遠端分支資訊...
 git remote update origin --prune
-if %errorlevel% neq 0 (
-    echo 警告: 無法連接遠端倉庫，將繼續使用本地版本。
+set GIT_REMOTE_ERROR=%errorlevel%
+if %GIT_REMOTE_ERROR% neq 0 (
+    echo 警告: 無法連接遠端倉庫 (錯誤碼: %GIT_REMOTE_ERROR%)
+    echo 可能原因: 網路問題、VPN未連接或遠端伺服器暫時無法訪問
+    
+    rem 檢查是否至少有本地分支可用
+    git rev-parse --verify %SOURCE_BRANCH% >nul 2>&1
+    set LOCAL_SOURCE_EXISTS=%errorlevel%
+    git rev-parse --verify %TARGET_BRANCH% >nul 2>&1
+    set LOCAL_TARGET_EXISTS=%errorlevel%
+    
+    if %LOCAL_SOURCE_EXISTS% neq 0 (
+        echo 嚴重錯誤: 源分支 %SOURCE_BRANCH% 不存在於本地，且無法從遠端獲取。
+        echo 操作無法繼續，請檢查分支名稱是否正確或恢復網絡連接後重試。
+        goto cleanup
+    )
+    
+    if %LOCAL_TARGET_EXISTS% neq 0 (
+        echo 嚴重錯誤: 目標分支 %TARGET_BRANCH% 不存在於本地，且無法從遠端獲取。
+        echo 操作無法繼續，請檢查分支名稱是否正確或恢復網絡連接後重試。
+        goto cleanup
+    )
+    
+    echo 將繼續使用本地版本進行比較，如需最新版本請確保網絡連接後再次執行。
+    
+    rem 跳過同步直接進行比較
+    goto skip_sync
 ) else (
     echo 成功獲取遠端分支資訊。
     
-    rem 同步源分支
+    rem 檢查並同步源分支
     echo.
-    echo 正在同步源分支 %SOURCE_BRANCH%...
-    git checkout %SOURCE_BRANCH% >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo 警告: 無法切換至源分支 %SOURCE_BRANCH%，跳過同步此分支。
+    echo 正在檢查源分支 %SOURCE_BRANCH%...
+    
+    rem 先檢查本地分支是否存在
+    git rev-parse --verify %SOURCE_BRANCH% >nul 2>&1
+    set LOCAL_SOURCE_EXISTS=%errorlevel%
+    
+    rem 檢查遠端分支是否存在
+    git rev-parse --verify origin/%SOURCE_BRANCH% >nul 2>&1
+    set REMOTE_SOURCE_EXISTS=%errorlevel%
+    
+    if %LOCAL_SOURCE_EXISTS% neq 0 (
+        if %REMOTE_SOURCE_EXISTS% equ 0 (
+            echo 源分支 %SOURCE_BRANCH% 不存在於本地但存在於遠端，正在創建...
+            git checkout -b %SOURCE_BRANCH% origin/%SOURCE_BRANCH%
+            if %errorlevel% equ 0 (
+                echo 成功創建並切換至源分支 %SOURCE_BRANCH%
+            ) else (
+                echo 警告: 無法創建源分支 %SOURCE_BRANCH%，將繼續使用遠端版本進行比較。
+            )
+        ) else (
+            echo 警告: 源分支 %SOURCE_BRANCH% 不存在於本地也不存在於遠端。
+        )
     ) else (
+        echo 源分支 %SOURCE_BRANCH% 存在於本地，正在同步...
+        git checkout %SOURCE_BRANCH% >nul 2>&1
         git pull origin %SOURCE_BRANCH% --ff-only
         if %errorlevel% neq 0 (
             echo 警告: 無法使用快速前進合併方式更新 %SOURCE_BRANCH%，嘗試正常合併...
@@ -148,13 +193,33 @@ if %errorlevel% neq 0 (
         )
     )
     
-    rem 同步目標分支
+    rem 檢查並同步目標分支
     echo.
-    echo 正在同步目標分支 %TARGET_BRANCH%...
-    git checkout %TARGET_BRANCH% >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo 警告: 無法切換至目標分支 %TARGET_BRANCH%，跳過同步此分支。
+    echo 正在檢查目標分支 %TARGET_BRANCH%...
+    
+    rem 先檢查本地分支是否存在
+    git rev-parse --verify %TARGET_BRANCH% >nul 2>&1
+    set LOCAL_TARGET_EXISTS=%errorlevel%
+    
+    rem 檢查遠端分支是否存在
+    git rev-parse --verify origin/%TARGET_BRANCH% >nul 2>&1
+    set REMOTE_TARGET_EXISTS=%errorlevel%
+    
+    if %LOCAL_TARGET_EXISTS% neq 0 (
+        if %REMOTE_TARGET_EXISTS% equ 0 (
+            echo 目標分支 %TARGET_BRANCH% 不存在於本地但存在於遠端，正在創建...
+            git checkout -b %TARGET_BRANCH% origin/%TARGET_BRANCH%
+            if %errorlevel% equ 0 (
+                echo 成功創建並切換至目標分支 %TARGET_BRANCH%
+            ) else (
+                echo 警告: 無法創建目標分支 %TARGET_BRANCH%，將繼續使用遠端版本進行比較。
+            )
+        ) else (
+            echo 警告: 目標分支 %TARGET_BRANCH% 不存在於本地也不存在於遠端。
+        )
     ) else (
+        echo 目標分支 %TARGET_BRANCH% 存在於本地，正在同步...
+        git checkout %TARGET_BRANCH% >nul 2>&1
         git pull origin %TARGET_BRANCH% --ff-only
         if %errorlevel% neq 0 (
             echo 警告: 無法使用快速前進合併方式更新 %TARGET_BRANCH%，嘗試正常合併...
@@ -177,6 +242,8 @@ if %errorlevel% neq 0 (
         )
     )
 )
+
+:skip_sync
 echo.
 echo ===================================
 echo        同步完成，開始比對檔案       
