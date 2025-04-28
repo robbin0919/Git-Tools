@@ -304,7 +304,7 @@ for /F "usebackq tokens=*" %%f in ("%TEMP_DIR%\filelist.txt") do (
     if !errorlevel! neq 0 (
         echo ^(!file_count!^/%total_files%^) 警告^: 無法提取檔案 %%f
     ) else (
-        echo ^(!file_count!^/%total_files%^) 提取^: %%f
+        echo ^(!file_count!^/%total_files%^) 提取^: [%TARGET_BRANCH%] %%f
     )
 )
 
