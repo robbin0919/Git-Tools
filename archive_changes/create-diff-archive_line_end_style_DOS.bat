@@ -5,14 +5,14 @@ call :main %*
 exit /b %errorlevel%
 
 :main
-    rem 主程式邏輯
-    call :parse_arguments %*
-    call :extract_files
-    call :convert_line_endings
-    call :create_archive
-    call :generate_report
-    call :cleanup
-    exit /b 0
+    rem ========== 主程式邏輯流程 ==========
+    call :parse_arguments %*    rem 解析命令列參數，設定輸出檔名、源分支及目標分支
+    call :extract_files         rem 提取兩個分支間的差異檔案到臨時目錄
+    call :convert_line_endings  rem 將文字檔案的換行符從Unix格式(LF)轉換為DOS格式(CRLF)
+    call :create_archive        rem 創建包含所有提取檔案的ZIP壓縮檔
+    call :generate_report       rem 生成執行結果的詳細報告，包含Git倉庫及檔案資訊
+    call :cleanup               rem 清理臨時檔案和目錄，釋放資源
+    exit /b 0                   rem 正常結束批次處理，返回代碼0表示成功
 
 :parse_arguments
     rem 參數解析函式
