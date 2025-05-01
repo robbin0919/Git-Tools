@@ -10,7 +10,7 @@ rem Git 變更檔案打包工具 (create-diff-archive.bat)
 rem ===================================================
 rem 功能: 將兩個分支間的差異檔案打包成壓縮檔
 rem 作者: Robbie Lee 
-rem 日期: 2025-04-29
+rem 日期: 2025-05-01
 rem
 rem 使用方法:
 rem   create-diff-archive.bat [輸出檔名] [源分支] [目標分支]
@@ -106,151 +106,6 @@ if %errorlevel% neq 0 (
     echo 錯誤^: 目標分支 %TARGET_BRANCH% 不存在!
     goto cleanup
 )
-
-rem ===== 改進的同步功能 =====
-echo.
-echo ===================================
-echo      與遠端Repository同步中...      
-echo ===================================
-echo.
-
-rem 儲存目前分支名稱，稍後會返回此分支
-for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set ORIGINAL_BRANCH=%%b
-echo 當前工作分支: %ORIGINAL_BRANCH%
-
-rem 檢查工作區是否乾淨
-git diff --quiet
-set GIT_CLEAN_WORKSPACE=%errorlevel%
-if %GIT_CLEAN_WORKSPACE% neq 0 (
-    echo 警告: 本機工作區有未提交的變更，將在同步後還原。
-    git stash push -m "自動暫存於 %date% %time%" >nul 2>&1
-)
-
-rem 先獲取所有遠端分支資訊
-echo 正在獲取遠端分支資訊...
-git remote update origin --prune
-set GIT_REMOTE_ERROR=%errorlevel%
-if %GIT_REMOTE_ERROR% neq 0 (
-    echo 警告: 無法連接遠端倉庫 (錯誤碼: %GIT_REMOTE_ERROR%)
-    echo 可能原因: 網路問題、VPN未連接或遠端伺服器暫時無法訪問
-    
-    rem 檢查是否至少有本地分支可用
-    git rev-parse --verify %SOURCE_BRANCH% >nul 2>&1
-    set LOCAL_SOURCE_EXISTS=%errorlevel%
-    git rev-parse --verify %TARGET_BRANCH% >nul 2>&1
-    set LOCAL_TARGET_EXISTS=%errorlevel%
-    
-    if %LOCAL_SOURCE_EXISTS% neq 0 (
-        echo 嚴重錯誤: 源分支 %SOURCE_BRANCH% 不存在於本地，且無法從遠端獲取。
-        echo 操作無法繼續，請檢查分支名稱是否正確或恢復網絡連接後重試。
-        goto cleanup
-    )
-    
-    if %LOCAL_TARGET_EXISTS% neq 0 (
-        echo 嚴重錯誤: 目標分支 %TARGET_BRANCH% 不存在於本地，且無法從遠端獲取。
-        echo 操作無法繼續，請檢查分支名稱是否正確或恢復網絡連接後重試。
-        goto cleanup
-    )
-    
-    echo 將繼續使用本地版本進行比較，如需最新版本請確保網絡連接後再次執行。
-    
-    rem 跳過同步直接進行比較
-    goto skip_sync
-) else (
-    echo 成功獲取遠端分支資訊。
-    
-    rem 檢查並同步源分支
-    echo.
-    echo 正在檢查源分支 %SOURCE_BRANCH%...
-    
-    rem 先檢查本地分支是否存在
-    git rev-parse --verify %SOURCE_BRANCH% >nul 2>&1
-    set LOCAL_SOURCE_EXISTS=%errorlevel%
-    
-    rem 檢查遠端分支是否存在
-    git rev-parse --verify origin/%SOURCE_BRANCH% >nul 2>&1
-    set REMOTE_SOURCE_EXISTS=%errorlevel%
-    
-    if %LOCAL_SOURCE_EXISTS% neq 0 (
-        if %REMOTE_SOURCE_EXISTS% equ 0 (
-            echo 源分支 %SOURCE_BRANCH% 不存在於本地但存在於遠端，正在創建...
-            git checkout -b %SOURCE_BRANCH% origin/%SOURCE_BRANCH%
-            if %errorlevel% equ 0 (
-                echo 成功創建並切換至源分支 %SOURCE_BRANCH%
-            ) else (
-                echo 警告: 無法創建源分支 %SOURCE_BRANCH%，將繼續使用遠端版本進行比較。
-            )
-        ) else (
-            echo 警告: 源分支 %SOURCE_BRANCH% 不存在於本地也不存在於遠端。
-        )
-    ) else (
-        echo 源分支 %SOURCE_BRANCH% 存在於本地，正在同步...
-        git checkout %SOURCE_BRANCH% >nul 2>&1
-        git pull origin %SOURCE_BRANCH% --ff-only
-        if %errorlevel% neq 0 (
-            echo 警告: 無法使用快速前進合併方式更新 %SOURCE_BRANCH%，嘗試正常合併...
-            git pull origin %SOURCE_BRANCH%
-        )
-    )
-    
-    rem 檢查並同步目標分支
-    echo.
-    echo 正在檢查目標分支 %TARGET_BRANCH%...
-    
-    rem 先檢查本地分支是否存在
-    git rev-parse --verify %TARGET_BRANCH% >nul 2>&1
-    set LOCAL_TARGET_EXISTS=%errorlevel%
-    
-    rem 檢查遠端分支是否存在
-    git rev-parse --verify origin/%TARGET_BRANCH% >nul 2>&1
-    set REMOTE_TARGET_EXISTS=%errorlevel%
-    
-    if %LOCAL_TARGET_EXISTS% neq 0 (
-        if %REMOTE_TARGET_EXISTS% equ 0 (
-            echo 目標分支 %TARGET_BRANCH% 不存在於本地但存在於遠端，正在創建...
-            git checkout -b %TARGET_BRANCH% origin/%TARGET_BRANCH%
-            if %errorlevel% equ 0 (
-                echo 成功創建並切換至目標分支 %TARGET_BRANCH%
-            ) else (
-                echo 警告: 無法創建目標分支 %TARGET_BRANCH%，將繼續使用遠端版本進行比較。
-            )
-        ) else (
-            echo 警告: 目標分支 %TARGET_BRANCH% 不存在於本地也不存在於遠端。
-        )
-    ) else (
-        echo 目標分支 %TARGET_BRANCH% 存在於本地，正在同步...
-        git checkout %TARGET_BRANCH% >nul 2>&1
-        git pull origin %TARGET_BRANCH% --ff-only
-        if %errorlevel% neq 0 (
-            echo 警告: 無法使用快速前進合併方式更新 %TARGET_BRANCH%，嘗試正常合併...
-            git pull origin %TARGET_BRANCH%
-        )
-    )
-    
-    rem 返回原本的分支
-    echo.
-    echo 返回原始工作分支: %ORIGINAL_BRANCH%
-    git checkout %ORIGINAL_BRANCH% >nul 2>&1
-    
-    rem 如果原本有暫存變更，還原之
-    if %GIT_CLEAN_WORKSPACE% neq 0 (
-        git stash pop >nul 2>&1
-        if %errorlevel% neq 0 (
-            echo 警告: 還原暫存的變更失敗。暫存內容仍保留在 stash 中。
-        ) else (
-            echo 已還原暫存的工作區變更。
-        )
-    )
-)
-
-:skip_sync
-echo.
-echo ===================================
-echo        同步完成，開始比對檔案       
-echo ===================================
-echo.
-rem ===== 新增同步功能結束 =====
-
 rem 獲取檔案清單到臨時檔案 (UTF-8 編碼)
 echo 正在取得變更檔案清單...
 git diff-tree -r --name-only --diff-filter=ACMRT %SOURCE_BRANCH% %TARGET_BRANCH% > "%TEMP_DIR%\filelist_utf8.txt"
@@ -304,7 +159,7 @@ for /F "usebackq tokens=*" %%f in ("%TEMP_DIR%\filelist.txt") do (
     if !errorlevel! neq 0 (
         echo ^(!file_count!^/%total_files%^) 警告^: 無法提取檔案 %%f
     ) else (
-        echo ^(!file_count!^/%total_files%^) 提取^: [%TARGET_BRANCH%] %%f
+        echo ^(!file_count!^/%total_files%^) 提取^: %%f
     )
 )
 
@@ -313,7 +168,7 @@ rem 轉換所有文本檔案的換行符 (Unix LF -> DOS CRLF)
 echo 正在轉換文字檔案換行符 ^(Unix -^> DOS^)...
 
 rem 在工作目錄建立更精確的 PowerShell 腳本
-echo $fileTypes = @('.vw','.tps','.trg','.tab','.seq','.prc','.spc','.bdy','.fnc','.idx','.txt','.xml','.html','.htm','.css','.js','.java','.aspx','.cshtml','.cs','.vb','.cpp','.h','.c','.php','.py','.bat','.cmd','.ps1','.json','.config','.yml','.yaml','.md','.sql','.map','.csproj','.vbproj','.settings','.myapp','.sln') > "convert_eol.ps1"
+echo $fileTypes = @('.vw','.tps','.trg','.tab','.seq','.prc','.spc','.bdy','.fnc','.idx','.txt','.xml','.html','.htm','.css','.js','.java','.aspx','.cshtml','.cs','.vb','.cpp','.h','.c','.php','.py','.bat','.cmd','.ps1','.json','.config','.yml','.yaml','.md','.sql') > "convert_eol.ps1"
 echo $count = 0 >> "convert_eol.ps1"
 echo $errorCount = 0 >> "convert_eol.ps1"
 echo $changedCount = 0 >> "convert_eol.ps1"
@@ -389,6 +244,7 @@ if %errorlevel% neq 0 (
 set /p current_branch=<"%TEMP_DIR%\branch.tmp"
 for /f "tokens=*" %%c in ('git rev-parse HEAD') do set current_commit=%%c
 
+
 echo Repository 資訊:
 echo   本地路徑: !repo_root!
 echo   遠端 URL: !repo_url!
@@ -398,38 +254,6 @@ echo   當前提交: !current_commit:~0,8!
 rem 新增同步資訊區塊
 echo.
 echo 同步資訊:
-if defined GIT_REMOTE_ERROR (
-    if !GIT_REMOTE_ERROR! equ 0 (
-        echo   同步狀態: 成功
-    ) else (
-        echo   同步狀態: 失敗 ^(錯誤碼: !GIT_REMOTE_ERROR!^)
-    )
-
-    if !GIT_REMOTE_ERROR! neq 0 (
-        echo   同步結果: 使用本地版本進行比較 ^(無法連接遠端^)
-    ) else (
-        echo   同步結果: 成功與遠端同步
-        
-        if defined LOCAL_SOURCE_EXISTS (
-            if !LOCAL_SOURCE_EXISTS! equ 0 (
-                echo   源分支同步: 已同步
-            ) else (
-                echo   源分支同步: 僅使用遠端版本
-            )
-        )
-        
-        if defined LOCAL_TARGET_EXISTS (
-            if !LOCAL_TARGET_EXISTS! equ 0 (
-                echo   目標分支同步: 已同步
-            ) else (
-                echo   目標分支同步: 僅使用遠端版本
-            )
-        )
-    )
-) else (
-    echo   同步狀態: 未執行同步 ^(跳過^)
-)
-
 set "last_fetch_time=未知"
 set "last_pull_time=未知"
 set "has_pull_time=false"
@@ -463,52 +287,8 @@ if "!has_pull_time!"=="true" (
 
 echo.
 echo 打包資訊:
-
-rem 顯示源分支狀態 - 使用單行顯示方式
-if defined LOCAL_SOURCE_EXISTS (
-    if !LOCAL_SOURCE_EXISTS! equ 0 (
-        set "source_local_status=本地存在, "
-    ) else (
-        set "source_local_status=本地不存在, "
-    )
-) else (
-    set "source_local_status=本地狀態未知, "
-)
-
-if defined REMOTE_SOURCE_EXISTS (
-    if !REMOTE_SOURCE_EXISTS! equ 0 (
-        set "source_remote_status=遠端存在"
-    ) else (
-        set "source_remote_status=遠端不存在"
-    )
-) else (
-    set "source_remote_status=遠端狀態未知"
-)
-echo   源分支: %SOURCE_BRANCH% ^(%source_local_status%%source_remote_status%^)
-
-rem 顯示目標分支狀態 - 使用單行顯示方式
-if defined LOCAL_TARGET_EXISTS (
-    if !LOCAL_TARGET_EXISTS! equ 0 (
-        set "target_local_status=本地存在, "
-    ) else (
-        set "target_local_status=本地不存在, "
-    )
-) else (
-    set "target_local_status=本地狀態未知, "
-)
-
-if defined REMOTE_TARGET_EXISTS (
-    if !REMOTE_TARGET_EXISTS! equ 0 (
-        set "target_remote_status=遠端存在"
-    ) else (
-        set "target_remote_status=遠端不存在"
-    )
-) else (
-    set "target_remote_status=遠端狀態未知"
-)
-echo   目標分支: %TARGET_BRANCH% ^(%target_local_status%%target_remote_status%^)
-
-rem 顯示檔案總數和成功提取的檔案數
+echo   源分支: %SOURCE_BRANCH%
+echo   目標分支: %TARGET_BRANCH%
 echo   檔案總數: %total_files%
 echo   成功提取: !file_count!
 if exist "%OUTPUT_ARCHIVE%" (
@@ -536,7 +316,7 @@ echo ===================================
 echo.
 echo 開發資訊:
 echo   主要開發: Robbie Lee
-echo   最後修改時間: 2025-04-29
+echo   最後修改時間: 2025-04-26
 echo.
 echo   詳細使用說明:
 echo   create-diff-archive.bat --help
