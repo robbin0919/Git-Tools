@@ -10,6 +10,12 @@ exit /b %errorlevel%
     rem 解析命令列參數，設定輸出檔名、源分支及目標分支
     call :parse_arguments %*
     
+    rem 更新本地存儲庫，確保與遠端同步
+    call :update_repository
+    
+    rem 檢查指定的源分支和目標分支是否存在
+    call :check_branches || exit /b 1
+    
     rem 提取兩個分支間的差異檔案到臨時目錄
     call :extract_files
     
@@ -29,52 +35,12 @@ exit /b %errorlevel%
     exit /b 0
 
 :parse_arguments
-    rem 參數解析函式
-    rem 確保使用 UTF-8 編碼並等待編碼生效
-    rem chcp 65001 >nul
-    rem 添加短暫延遲確保編碼生效
-    rem ping -n 1 127.0.0.1 >nul
-
-    rem ===================================================
-    rem Git 變更檔案打包工具 (create-diff-archive.bat)
-    rem ===================================================
-    rem 功能: 將兩個分支間的差異檔案打包成壓縮檔
-    rem 作者: Robbie Lee 
-    rem 日期: 2025-05-01
-    rem
-    rem 使用方法:
-    rem   create-diff-archive.bat [輸出檔名] [源分支] [目標分支]
-    rem   或
-    rem   create-diff-archive.bat -F [輸出檔名] -S [源分支] -T [目標分支]
-    rem
-    rem 參數: 
-    rem   [輸出檔名]   - 壓縮檔檔案名稱，副檔名依壓縮指定決定 (預設: APP_SIT.zip)
-    rem   [源分支]     - 比較的基準分支 (預設: master)
-    rem   [目標分支]   - 比較的目標分支 (預設: SIT)
-    rem
-    rem 範例:
-    rem   create-diff-archive.bat                         - 使用預設設定
-    rem   create-diff-archive.bat changes.zip             - 自訂輸出檔名 
-    rem   create-diff-archive.bat -F changes.zip          - 使用具名參數指定輸出檔名
-    rem   create-diff-archive.bat -S main -T dev          - 自訂源分支和目標分支
-    rem   create-diff-archive.bat -F changes.zip -S main -T dev - 自訂所有參數
-    rem ===================================================
-
-    rem 檢查是否為說明請求
-    if "%~1"=="--help" goto :showhelp
-    if "%~1"=="/?" goto :showhelp
-
-    rem 檢查是否在 Git 存儲庫中執行
-    git rev-parse --is-inside-work-tree >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo 錯誤: 請在 Git 存儲庫根目錄中執行此批次檔!
-        exit /b 1
-    )
-
     rem 設定預設變數
     set OUTPUT_ARCHIVE=APP_SIT
     set SOURCE_BRANCH=master
     set TARGET_BRANCH=SIT
+    rem 設定自訂臨時目錄，預設在當前目錄下
+    set TEMP_BASE_DIR=temp_archive
 
     rem 處理命令行參數 - 支援具名參數格式
     :parse_args
@@ -94,6 +60,11 @@ exit /b %errorlevel%
         shift & shift
         goto :parse_args
     )
+    if /i "%~1"=="-TMP" (
+        set TEMP_BASE_DIR=%~2
+        shift & shift
+        goto :parse_args
+    )
 
     rem 舊參數格式的兼容性處理
     if not "%~1"=="" set OUTPUT_ARCHIVE=%~1
@@ -110,36 +81,120 @@ exit /b %errorlevel%
     echo 輸出檔案: %OUTPUT_ARCHIVE%
     echo 源分支: %SOURCE_BRANCH%
     echo 目標分支: %TARGET_BRANCH%
+    echo 臨時目錄: %TEMP_BASE_DIR%
 
+    exit /b 0
+
+:update_repository
+    rem 更新本地存儲庫函式
+    echo ========== 更新本地存儲庫 ==========
+    echo 正在檢查遠端更新...
+    
+    rem 保存當前分支名稱
+    for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set CURRENT_BRANCH=%%b
+    echo 當前分支: %CURRENT_BRANCH%
+    
+    rem 先進行 fetch 更新遠端分支資訊
+    echo 正在更新遠端分支資訊 (git fetch)...
+    git -c diff.mnemonicprefix=false -c core.quotepath=false --no-optional-locks fetch --tags origin
+    if %errorlevel% neq 0 (
+        echo 警告^: 無法更新遠端分支資訊，將使用目前本地版本繼續。
+    ) else (
+        echo 遠端分支資訊已更新。
+        
+        rem 檢查本地分支是否需要更新
+        git rev-list HEAD..origin/%CURRENT_BRANCH% --count > "%TEMP%\update_count.txt" 2>nul
+        set /p update_count=<"%TEMP%\update_count.txt"
+        
+        if "!update_count!" neq "0" (
+            echo 發現 !update_count! 個新的提交，正在更新本地分支...
+            
+            rem 檢查工作區是否有未提交的變更
+            git diff --quiet
+            if !errorlevel! neq 0 (
+                echo 警告^: 工作區有未提交的變更，將嘗試使用 stash 保存...
+                git stash save "Auto stash before pull"
+                set stashed=1
+            ) else (
+                set stashed=0
+            )
+            
+            rem 執行 pull 更新當前分支
+            git pull
+            if !errorlevel! neq 0 (
+                echo 錯誤^: 無法更新本地分支。可能存在衝突，建議手動處理。
+                echo 將使用目前本地版本繼續。
+            ) else (
+                echo 本地分支已成功更新到最新版本。
+            )
+            
+            rem 如果之前有 stash，嘗試恢復
+            if "!stashed!"=="1" (
+                echo 正在恢復未提交的變更...
+                git stash pop
+                if !errorlevel! neq 0 (
+                    echo 警告^: 恢復未提交的變更時發生衝突，請手動處理。
+                )
+            )
+        ) else (
+            echo 本地分支已是最新版本，無需更新。
+        )
+    )
+    
+    echo 存儲庫準備就緒。
+    echo ==============================
+    echo.
+    
+    exit /b 0
+
+:check_branches
+    rem 檢查源分支和目標分支是否存在
+    echo ========== 檢查分支是否存在 ==========
+    
+    rem 檢查源分支是否存在
+    echo 檢查源分支: %SOURCE_BRANCH%
+    git rev-parse --verify %SOURCE_BRANCH% >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo 錯誤^: 源分支 %SOURCE_BRANCH% 不存在!
+        exit /b 1
+    ) else (
+        echo 源分支 %SOURCE_BRANCH% 存在。
+    )
+
+    rem 檢查目標分支是否存在
+    echo 檢查目標分支: %TARGET_BRANCH%
+    git rev-parse --verify %TARGET_BRANCH% >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo 錯誤^: 目標分支 %TARGET_BRANCH% 不存在!
+        exit /b 1
+    ) else (
+        echo 目標分支 %TARGET_BRANCH% 存在。
+    )
+    
+    echo 分支檢查完成。
+    echo ==============================
+    echo.
+    
     exit /b 0
 
 :extract_files
     rem 檔案提取函式
-    rem 使用系統臨時目錄
-    set TEMP_DIR=%TEMP%\git_archive_%RANDOM%
+    rem 使用自訂臨時目錄，避免系統權限問題
+    set TEMP_DIR=%TEMP_BASE_DIR%\git_archive_%RANDOM%
+    
+    rem 如果是相對路徑，確保完整路徑存在
+    if not "%TEMP_BASE_DIR:~1,1%"==":" (
+        set TEMP_DIR=%CD%\%TEMP_DIR%
+    )
 
     rem 創建臨時目錄
+    if not exist "%TEMP_BASE_DIR%" mkdir "%TEMP_BASE_DIR%" 2>nul
     mkdir "%TEMP_DIR%" 2>nul
     echo 創建臨時目錄: %TEMP_DIR%
 
     rem 禁用 Git 路徑轉義，以便正確處理中文檔案名
     git config --local core.quotepath false
-    rem 在獲取檔案清單前檢查源分支和目標分支是否存在
-    echo 檢查分支是否存在...
-
-    rem 檢查源分支是否存在
-    git rev-parse --verify %SOURCE_BRANCH% >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo 錯誤^: 源分支 %SOURCE_BRANCH% 不存在!
-        goto cleanup
-    )
-
-    rem 檢查目標分支是否存在
-    git rev-parse --verify %TARGET_BRANCH% >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo 錯誤^: 目標分支 %TARGET_BRANCH% 不存在!
-        goto cleanup
-    )
+    
     rem 獲取檔案清單到臨時檔案 (UTF-8 編碼)
     echo 正在取得變更檔案清單...
     git diff-tree -r --name-only --diff-filter=ACMRT %SOURCE_BRANCH% %TARGET_BRANCH% > "%TEMP_DIR%\filelist_utf8.txt"
@@ -384,6 +439,7 @@ exit /b %errorlevel%
     echo   -F [輸出檔名]   - 壓縮檔檔案名稱，副檔名依壓縮指定決定 (預設: APP_SIT.zip)
     echo   -S [源分支]     - 比較的基準分支 (預設: master)
     echo   -T [目標分支]   - 比較的目標分支 (預設: SIT)
+    echo   -TMP [臨時目錄] - 指定用於處理檔案的臨時目錄 (預設: temp_archive)
     echo.
     echo 範例:
     echo   create-diff-archive.bat                         - 使用預設設定
