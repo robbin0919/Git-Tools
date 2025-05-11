@@ -156,19 +156,118 @@ exit /b %errorlevel%
     git rev-parse --verify %SOURCE_BRANCH% >nul 2>&1
     if %errorlevel% neq 0 (
         echo 錯誤^: 源分支 %SOURCE_BRANCH% 不存在!
-        exit /b 1
+        
+        rem 檢查遠端是否有此分支
+        git rev-parse --verify origin/%SOURCE_BRANCH% >nul 2>&1
+        if %errorlevel% neq 0 (
+            echo 錯誤^: 源分支 %SOURCE_BRANCH% 在本地和遠端都不存在!
+            exit /b 1
+        ) else (
+            echo 發現遠端分支 origin/%SOURCE_BRANCH%
+            set /p confirm=是否從遠端檢出源分支 [Y/N]? 
+            if /i "!confirm!"=="Y" (
+                echo 正在從遠端檢出分支 %SOURCE_BRANCH%...
+                git checkout -b %SOURCE_BRANCH% origin/%SOURCE_BRANCH%
+                if !errorlevel! neq 0 (
+                    echo 錯誤^: 無法從遠端檢出分支 %SOURCE_BRANCH%!
+                    exit /b 1
+                )
+                echo 分支 %SOURCE_BRANCH% 成功檢出。
+            ) else (
+                echo 操作已取消。
+                exit /b 1
+            )
+        )
     ) else (
         echo 源分支 %SOURCE_BRANCH% 存在。
+        
+        rem 檢查源分支是否需要更新
+        git rev-list %SOURCE_BRANCH%..origin/%SOURCE_BRANCH% --count > "%TEMP%\source_update_count.txt" 2>nul
+        if %errorlevel% equ 0 (
+            set /p source_update_count=<"%TEMP%\source_update_count.txt"
+            if "!source_update_count!" neq "0" (
+                echo 源分支 %SOURCE_BRANCH% 有 !source_update_count! 個新提交需要更新。
+                set /p confirm=是否更新源分支 [Y/N]? 
+                if /i "!confirm!"=="Y" (
+                    echo 正在更新源分支 %SOURCE_BRANCH%...
+                    
+                    rem 保存當前分支
+                    for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set TEMP_BRANCH=%%b
+                    
+                    rem 切換到源分支並更新
+                    git checkout %SOURCE_BRANCH% >nul 2>&1
+                    git pull origin %SOURCE_BRANCH%
+                    
+                    rem 切換回原分支
+                    git checkout !TEMP_BRANCH! >nul 2>&1
+                    
+                    echo 源分支 %SOURCE_BRANCH% 已更新。
+                ) else (
+                    echo 繼續使用本地版本的源分支 %SOURCE_BRANCH%。
+                )
+            )
+        )
     )
 
     rem 檢查目標分支是否存在
     echo 檢查目標分支: %TARGET_BRANCH%
     git rev-parse --verify %TARGET_BRANCH% >nul 2>&1
     if %errorlevel% neq 0 (
-        echo 錯誤^: 目標分支 %TARGET_BRANCH% 不存在!
-        exit /b 1
+        echo 目標分支 %TARGET_BRANCH% 在本地不存在!
+        
+        rem 檢查遠端是否有此分支
+        git rev-parse --verify origin/%TARGET_BRANCH% >nul 2>&1
+        if %errorlevel% neq 0 (
+            echo 錯誤^: 目標分支 %TARGET_BRANCH% 在本地和遠端都不存在!
+            exit /b 1
+        ) else (
+            echo 發現遠端分支 origin/%TARGET_BRANCH%
+            set /p confirm=是否從遠端檢出目標分支 [Y/N]? 
+            if /i "!confirm!"=="Y" (
+                echo 正在從遠端檢出分支 %TARGET_BRANCH%...
+                git checkout -b %TARGET_BRANCH% origin/%TARGET_BRANCH%
+                if !errorlevel! neq 0 (
+                    echo 錯誤^: 無法從遠端檢出分支 %TARGET_BRANCH%!
+                    exit /b 1
+                )
+                echo 分支 %TARGET_BRANCH% 成功檢出。
+                
+                rem 切換回原分支
+                git checkout !CURRENT_BRANCH! >nul 2>&1
+            ) else (
+                echo 操作已取消。
+                exit /b 1
+            )
+        )
     ) else (
         echo 目標分支 %TARGET_BRANCH% 存在。
+        
+        rem 檢查目標分支是否需要更新
+        git rev-list %TARGET_BRANCH%..origin/%TARGET_BRANCH% --count > "%TEMP%\target_update_count.txt" 2>nul
+        if %errorlevel% equ 0 (
+            set /p target_update_count=<"%TEMP%\target_update_count.txt"
+            if "!target_update_count!" neq "0" (
+                echo 目標分支 %TARGET_BRANCH% 有 !target_update_count! 個新提交需要更新。
+                set /p confirm=是否更新目標分支 [Y/N]? 
+                if /i "!confirm!"=="Y" (
+                    echo 正在更新目標分支 %TARGET_BRANCH%...
+                    
+                    rem 保存當前分支
+                    for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set TEMP_BRANCH=%%b
+                    
+                    rem 切換到目標分支並更新
+                    git checkout %TARGET_BRANCH% >nul 2>&1
+                    git pull origin %TARGET_BRANCH%
+                    
+                    rem 切換回原分支
+                    git checkout !TEMP_BRANCH! >nul 2>&1
+                    
+                    echo 目標分支 %TARGET_BRANCH% 已更新。
+                ) else (
+                    echo 繼續使用本地版本的目標分支 %TARGET_BRANCH%。
+                )
+            )
+        )
     )
     
     echo 分支檢查完成。
