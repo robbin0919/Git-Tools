@@ -215,9 +215,10 @@ exit /b %errorlevel%
     if %errorlevel% neq 0 (
         echo 目標分支 %TARGET_BRANCH% 在本地不存在!
         
-        rem 檢查遠端是否有此分支
-        git rev-parse --verify origin/%TARGET_BRANCH% >nul 2>&1
-        if %errorlevel% neq 0 (
+        rem 改進遠端分支檢查邏輯 - 使用更可靠的方式檢查遠端分支
+        rem 直接使用您確認有效的命令格式
+        git branch -r | findstr origin/%TARGET_BRANCH% >nul 2>&1
+        if !errorlevel! neq 0 (
             echo 錯誤^: 目標分支 %TARGET_BRANCH% 在本地和遠端都不存在!
             exit /b 1
         ) else (
