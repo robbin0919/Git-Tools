@@ -177,8 +177,6 @@ $ReportContent = New-Object System.Collections.Generic.List[string]
 $ConflictDetails = New-Object System.Collections.Generic.List[string]  # 獨立儲存衝突詳情
 $NetworkWarning = "" # 用於記錄網路/更新狀態
 
-# ... (省略中間程式碼) ...
-
 # 3. Git 環境準備
 Write-Host "更新遠端分支資訊 (git fetch)..." -ForegroundColor Yellow
 $FetchRes = Run-GitCmd -Command "fetch --all --prune" -WorkingDir $RepoPath
@@ -198,7 +196,25 @@ if ($PullRes.ExitCode -ne 0) {
     $NetworkWarning += ("> ⚠️ **警告:** 無法更新基底分支 ``{0}`` (Pull failed)。使用本地舊版本進行合併。  `n" -f $BaseBranch)
 }
 
-# ... (省略中間程式碼) ...
+# 檢查目標分支是否存在，若存在則記錄資訊
+$CheckTarget = Run-GitCmd -Command ("rev-parse --verify {0}" -f $TargetBranch) -WorkingDir $RepoPath
+$OldBranchInfo = ""
+
+if ($CheckTarget.ExitCode -eq 0) {
+    # 分支存在，收集資訊
+    $OldHash = $CheckTarget.Output.Trim().Substring(0, 7)
+    # 取得最後提交時間
+    # 使用 --date=iso 避免格式化字串在 Shell 傳遞時的問題
+    $OldTimeRes = Run-GitCmd -Command ("log -1 --format=%cd --date=iso {0}" -f $TargetBranch) -WorkingDir $RepoPath
+    $OldTime = "未知時間"
+    if (-not [string]::IsNullOrEmpty($OldTimeRes.Output)) {
+        $OldTime = $OldTimeRes.Output.Trim()
+    }
+    
+    $OldBranchInfo = "**⚠️ 注意:** 目標分支 ``{0}`` 原本已存在，系統已將其**刪除並重建**。  `n> **舊分支最後紀錄:** Commit ``{1}`` (時間: {2})" -f $TargetBranch, $OldHash, $OldTime
+    
+    Write-Host ("偵測到舊的目標分支，已記錄資訊並準備刪除..." -f $TargetBranch) -ForegroundColor Yellow
+}
 
 $ReportContent.Add("# 自動合併報告 (Auto Merge Report)")
 if (-not [string]::IsNullOrWhiteSpace($NetworkWarning)) {
@@ -220,42 +236,6 @@ $Header = "| {0} | {1} | {2} | {3} | {4} |" -f "序號", "分支名稱 (Branch)"
 $Divider = "|:---:|:---|:---|:---|:---|"
 $ReportContent.Add($Header)
 $ReportContent.Add($Divider)
-
-# 3. Git 環境準備
-Write-Host "更新遠端分支資訊 (git fetch)..." -ForegroundColor Yellow
-$FetchRes = Run-GitCmd -Command "fetch --all --prune" -WorkingDir $RepoPath
-if ($FetchRes.ExitCode -ne 0) {
-    Write-Host " [注意] 無法連接遠端伺服器進行更新 (可能處於離線狀態)。" -ForegroundColor Cyan
-    Write-Host "        將嘗試使用本地現有的分支資訊繼續執行。" -ForegroundColor Cyan
-}
-
-# 切換到 Base 分支並更新
-Write-Host ("切換至基底分支 {0}..." -f $BaseBranch)
-Run-GitCmd -Command ("checkout {0}" -f $BaseBranch) -WorkingDir $RepoPath | Out-Null
-
-$PullRes = Run-GitCmd -Command ("pull origin {0}" -f $BaseBranch) -WorkingDir $RepoPath
-if ($PullRes.ExitCode -ne 0) {
-    Write-Host (" [注意] 無法從遠端 pull {0} 的最新代碼，將使用本地版本。" -f $BaseBranch) -ForegroundColor Cyan
-}
-
-# 檢查目標分支是否存在，若存在則記錄資訊
-$CheckTarget = Run-GitCmd -Command ("rev-parse --verify {0}" -f $TargetBranch) -WorkingDir $RepoPath
-$OldBranchInfo = ""
-
-if ($CheckTarget.ExitCode -eq 0) {
-    # 分支存在，收集資訊
-    $OldHash = $CheckTarget.Output.Trim().Substring(0, 7)
-    # 取得最後提交時間
-    $OldTimeRes = Run-GitCmd -Command ("log -1 --format=%cd --date=format:'%Y-%m-%d %H:%M:%S' {0}" -f $TargetBranch) -WorkingDir $RepoPath
-    $OldTime = "未知時間"
-    if (-not [string]::IsNullOrEmpty($OldTimeRes.Output)) {
-        $OldTime = $OldTimeRes.Output.Trim()
-    }
-    
-    $OldBranchInfo = "**⚠️ 注意:** 目標分支 ``{0}`` 原本已存在，系統已將其**刪除並重建**。  `n> **舊分支最後紀錄:** Commit ``{1}`` (時間: {2})" -f $TargetBranch, $OldHash, $OldTime
-    
-    Write-Host ("偵測到舊的目標分支，已記錄資訊並準備刪除..." -f $TargetBranch) -ForegroundColor Yellow
-}
 
 # 重置/建立目標分支
 Write-Host ("建立/重置目標分支 {0}..." -f $TargetBranch)
@@ -438,7 +418,7 @@ if ($ConflictDetails.Count -gt 0) {
     $ReportContent.Add("")
     $ReportContent.Add("## 衝突標記上下文 (Conflict Markers Context)")
     $ReportContent.Add("")
-    $ReportContent.Add("> 以下為發生衝突的分支之詳細衝突標記內容，包含上下文 15 行，方便 PM 與 PG 判斷衝突原因。")
+    $ReportContent.Add('> <span style="color: red; font-weight: bold;">以下為發生衝突的分支之詳細衝突標記內容，包含上下文 15 行，方便 PM 與 PG 判斷衝突原因。</span>')
     $ReportContent.Add("")
     foreach ($Line in $ConflictDetails) {
         $ReportContent.Add($Line)
