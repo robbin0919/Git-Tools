@@ -31,6 +31,20 @@ CSV 檔案需包含分支資訊，腳本會讀取 **第二欄** 作為 Git 分�
     robbinLab-300,robbinLab-300-fix-bug-123,002
     ```
 
+## 執行流程 (Internal Logic)
+
+1.  **環境檢查**：確認 Git 倉庫路徑與 CSV 檔案是否存在。
+2.  **更新遠端資訊**：執行 `git fetch --all --prune` 確保獲取最新分支狀態。
+3.  **準備目標分支**：
+    *   切換至 `BaseBranch` (預設 `master`) 並執行 `pull` 更新。
+    *   刪除舊有的 `TargetBranch` 並基於最新的基底分支重新建立。
+4.  **依序合併**：
+    *   **檢查分支**：確認遠端是否存在該分支 (`origin/<BranchName>`)。
+    *   **嘗試合併**：執行 `git merge --no-commit --no-ff`。
+    *   **衝突處理**：若發生衝突，自動執行 `git checkout --theirs .` 並將原始 Git 衝突訊息附加至 Commit。
+    *   **記錄狀態**：將成功、失敗或衝突解決的結果記錄至報告清單。
+5.  **產出報告**：在倉庫根目錄產生 Markdown 格式的合併報告檔案。
+
 ## 使用方式
 
 ### 語法

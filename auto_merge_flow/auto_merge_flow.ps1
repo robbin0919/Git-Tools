@@ -4,18 +4,58 @@
     衝突策略：使用 "theirs" (傳入變更) 優先。
 #>
 
+[CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true)]
     [string]$RepoPath,
 
-    [Parameter(Mandatory=$true)]
     [string]$TargetBranch,
 
     [string]$BaseBranch = "master",
 
-    [Parameter(Mandatory=$true)]
-    [string]$CsvPath
+    [string]$CsvPath,
+
+    [switch]$Help,
+
+    # 捕捉所有未被綁定的剩餘參數
+    [Parameter(ValueFromRemainingArguments=$true)]
+    $RemainingArgs
 )
+
+function Show-Usage {
+    Write-Host "用法 (Usage):" -ForegroundColor Cyan
+    Write-Host "    .\auto_merge_flow.ps1 -RepoPath <Git倉庫路徑> -TargetBranch <目標分支> -CsvPath <CSV清單路徑> [-BaseBranch <基底分支>]"
+    Write-Host ""
+    Write-Host "參數說明:"
+    Write-Host "    -RepoPath      (必要) 本地 Git 倉庫的絕對路徑"
+    Write-Host "    -TargetBranch  (必要) 合併後產出的目標分支名稱"
+    Write-Host "    -CsvPath       (必要) 包含分支清單的 CSV 檔案路徑"
+    Write-Host "    -BaseBranch    (選填) 基底分支名稱 (預設: master)"
+    Write-Host "    -Help          顯示此說明"
+    Write-Host ""
+}
+
+# 1. 檢查是否要求顯示說明
+if ($Help) {
+    Show-Usage
+    exit 0
+}
+
+# 2. 檢查是否有未識別的多餘參數
+if ($null -ne $RemainingArgs -and $RemainingArgs.Count -gt 0) {
+    Write-Host ("錯誤：偵測到未識別的參數或值: {0}" -f ($RemainingArgs -join ", ")) -ForegroundColor Red
+    Write-Host "請確認是否忘記加上參數名稱 (例如 -RepoPath)，或輸入了不支援的參數。"
+    Write-Host ""
+    Show-Usage
+    exit 1
+}
+
+# 3. 檢查必要參數
+if ([string]::IsNullOrWhiteSpace($RepoPath) -or [string]::IsNullOrWhiteSpace($TargetBranch) -or [string]::IsNullOrWhiteSpace($CsvPath)) {
+    Write-Host "錯誤：缺少必要參數。" -ForegroundColor Red
+    Write-Host ""
+    Show-Usage
+    exit 1
+}
 
 # 強制設定輸出編碼為 UTF-8，確保 PowerShell 內部的字串處理正確
 $OutputEncoding = [System.Text.Encoding]::UTF8
