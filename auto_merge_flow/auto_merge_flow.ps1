@@ -134,6 +134,8 @@ if ($BranchList.Count -eq 0) {
 
 # 初始化報告內容
 $ReportContent = New-Object System.Collections.Generic.List[string]
+$ConflictDetails = New-Object System.Collections.Generic.List[string]  # 獨立儲存衝突詳情
+
 $ReportContent.Add("# 自動合併報告 (Auto Merge Report)")
 $ReportContent.Add( ("**執行時間:** {0}  " -f $CurrentTime) )
 $ReportContent.Add( ("**目標分支:** ``{0}``  " -f $TargetBranch) )
@@ -217,13 +219,65 @@ foreach ($BranchName in $BranchList) {
         
         # 2. 取得衝突檔案清單
         $DiffRes = Run-GitCmd -Command "diff --name-only --diff-filter=U" -WorkingDir $RepoPath
-        $ConflictFiles = $DiffRes.Output.Trim() -replace "`r`n", ", " -replace "`n", ", "
+        $ConflictFilesList = @()
+        if (-not [string]::IsNullOrWhiteSpace($DiffRes.Output)) {
+            $ConflictFilesList = $DiffRes.Output.Trim() -split "`r?`n"
+        }
         
+        $ConflictFiles = $ConflictFilesList -join ", "
         if ([string]::IsNullOrWhiteSpace($ConflictFiles)) {
              $ConflictFiles = "Tree Conflict / Binary Conflict (無法列出詳細檔案)"
         }
         
-        # 記錄到 Note
+        # 2-1. 使用 Git 內建 grep 搜尋衝突標記，顯示上下文 (方便 PM/PG 判斷)
+        # 直接讀取有衝突的檔案內容並搜尋衝突標記
+        # -I: 忽略二進位檔案
+        # -n: 顯示行號
+        # -C 15: 顯示上下文 15 行（確保能捕捉完整的衝突區塊，包含 <<<<<<<、======= 和 >>>>>>>）
+        if ($ConflictFilesList.Count -gt 0) {
+            # 對每個衝突檔案執行 grep
+            $GrepResults = @()
+            foreach ($File in $ConflictFilesList) {
+                if (-not [string]::IsNullOrWhiteSpace($File)) {
+                    # 使用 -- 來明確指定檔案路徑，避免路徑被當作選項
+                    $GrepCmd = "grep -I -n -C 15 `"<<<<<<<`" -- `"$File`""
+                    $GrepRes = Run-GitCmd -Command $GrepCmd -WorkingDir $RepoPath
+                    if ($GrepRes.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($GrepRes.Output)) {
+                        $HighlightedOutput = $GrepRes.Output.Trim()
+                        
+                        # 1. 進行 HTML Escape，避免程式碼內容被瀏覽器誤判為標籤
+                        $HighlightedOutput = $HighlightedOutput.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;")
+
+                        # 2. 使用 HTML 標籤為衝突標記整行上色
+                        # 注意：因為已進行 Escape，所以要匹配 &lt; 和 &gt;
+                        # (?m) 開啟多行模式，^...$ 匹配整行
+                        
+                        # <<<<<<< (HEAD) -> 紅色
+                        $HighlightedOutput = $HighlightedOutput -replace '(?m)^.*(?:&lt;){7}.*$', '<span style="color: #d9534f; font-weight: bold;">$0</span>'
+                        
+                        # ======= (Divider) -> 藍色
+                        $HighlightedOutput = $HighlightedOutput -replace '(?m)^.*={7}.*$', '<span style="color: #5bc0de; font-weight: bold;">$0</span>'
+                        
+                        # >>>>>>> (Branch) -> 綠色
+                        $HighlightedOutput = $HighlightedOutput -replace '(?m)^.*(?:&gt;){7}.*$', '<span style="color: #5cb85c; font-weight: bold;">$0</span>'
+                        
+                        $GrepResults += "**檔案:** ``$File```n<pre>`n" + $HighlightedOutput + "`n</pre>`n"
+                    }
+                }
+            }
+            
+            # 如果有衝突上下文，記錄到獨立章節
+            if ($GrepResults.Count -gt 0) {
+                $ConflictDetails.Add("### [$Index] ``$BranchName``")
+                $ConflictDetails.Add("")
+                foreach ($Result in $GrepResults) {
+                    $ConflictDetails.Add($Result)
+                }
+                $ConflictDetails.Add("")
+            }
+        }
+        
+        # 記錄到 Note (只記錄簡要資訊)
         $Note = "衝突檔案: " + $ConflictFiles
         
         # 3. 使用 Theirs 解決衝突
@@ -278,7 +332,21 @@ foreach ($BranchName in $BranchList) {
     }
 }
 
-# 5. 輸出報告 (UTF8 在 WinPS 5.1 即為 UTF-8 with BOM)
+# 5. 附加衝突詳情章節
+if ($ConflictDetails.Count -gt 0) {
+    $ReportContent.Add("")
+    $ReportContent.Add("---")
+    $ReportContent.Add("")
+    $ReportContent.Add("## 衝突標記上下文 (Conflict Markers Context)")
+    $ReportContent.Add("")
+    $ReportContent.Add("> 以下為發生衝突的分支之詳細衝突標記內容，包含上下文 15 行，方便 PM 與 PG 判斷衝突原因。")
+    $ReportContent.Add("")
+    foreach ($Line in $ConflictDetails) {
+        $ReportContent.Add($Line)
+    }
+}
+
+# 6. 輸出報告 (UTF8 在 WinPS 5.1 即為 UTF-8 with BOM)
 $ReportContent | Out-File -FilePath $ReportPath -Encoding UTF8
 Write-Host "`n流程結束。" -ForegroundColor Green
 Write-Host ("報告已產出: {0}" -f $ReportPath)
