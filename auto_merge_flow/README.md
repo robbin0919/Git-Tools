@@ -34,26 +34,37 @@ CSV 檔案需包含分支資訊，腳本會讀取 **第二欄** 作為 Git 分�
 ## 執行流程 (Internal Logic)
 
 1.  **環境檢查**：確認 Git 倉庫路徑與 CSV 檔案是否存在。
-2.  **更新遠端資訊**：執行 `git fetch --all --prune` 確保獲取最新分支狀態。
+2.  **更新遠端資訊**：
+    *   **正常模式**：執行 `git fetch --all --prune` 確保獲取最新分支狀態。
+    *   **離線模式** (`-Offline`)：跳過此步驟。
 3.  **準備目標分支**：
-    *   切換至 `BaseBranch` (預設 `master`) 並執行 `pull` 更新。
-    *   刪除舊有的 `TargetBranch` 並基於最新的基底分支重新建立。
+    *   切換至 `BaseBranch` (預設 `master`)。
+    *   **正常模式**：執行 `pull` 更新；**離線模式**：僅切換不更新。
+    *   刪除舊有的 `TargetBranch` (若存在會先記錄最後 Commit 資訊) 並重新建立。
 4.  **依序合併**：
-    *   **檢查分支**：確認遠端是否存在該分支 (`origin/<BranchName>`)。
+    *   **檢查分支**：
+        *   **正常模式**：檢查 `origin/<BranchName>` 是否存在。
+        *   **離線模式**：檢查本地 `<BranchName>` 是否存在。
     *   **嘗試合併**：執行 `git merge --no-commit --no-ff`。
     *   **衝突處理**：若發生衝突，自動執行 `git checkout --theirs .` 並將原始 Git 衝突訊息附加至 Commit。
     *   **記錄狀態**：將成功、失敗或衝突解決的結果記錄至報告清單。
 5.  **產出報告**：在倉庫根目錄產生 Markdown 格式的合併報告檔案。
 
+## 合併目標邏輯 (Merge Target Logic)
+
+本工具的核心設計原則為「**以遠端伺服器版本為準 (Source of Truth)**」，以確保整合環境的一致性。
+
+| 模式 | 參數 | 合併對象 | 說明 |
+| :--- | :--- | :--- | :--- |
+| **預設 (連線)** | (無) | `origin/<BranchName>` | **優先使用遠端版本**。<br>腳本會先執行 `fetch` 更新，確保合併內容為伺服器上的最新代碼。若本地有未推送的修改，預設模式下將被忽略。 |
+| **離線模式** | `-Offline` | `<BranchName>` | **使用本地版本**。<br>跳過所有網路操作，直接合併您本地電腦中的分支。適用於無網路環境或測試本地實驗性功能。 |
+
 ## 使用方式
 
 ### 語法
 
-```powershell
-.\auto_merge_flow.ps1 -RepoPath <Git倉庫路徑> -TargetBranch <目標分支名稱> -CsvPath <CSV檔案路徑> [-BaseBranch <基底分支名稱>]
-```
 
-### 參數說明
+## 參數說明
 
 | 參數 | 必填 | 預設值 | 說明 |
 | :--- | :---: | :--- | :--- |
@@ -61,17 +72,26 @@ CSV 檔案需包含分支資訊，腳本會讀取 **第二欄** 作為 Git 分�
 | `-TargetBranch` | 是 | - | 要合併進去的目標分支名稱 (例如 `SIT_Integration`)。若分支已存在會被重置。 |
 | `-CsvPath` | 是 | - | 包含合併清單的 CSV 檔案完整路徑。 |
 | `-BaseBranch` | 否 | `master` | 目標分支的基底來源，每次執行會先切到此分支更新後，再建立目標分支。 |
+| `-Offline` | 否 | `$false` | 離線模式。開啟後不執行 `fetch/pull`，且僅合併本地已存在的同名分支。 |
+| `-Help` | 否 | - | 顯示參數用法說明。 |
 
-### 執行範例
+## 執行範例
 
-**基本範例：**
+### 批次檔範例 (CMD/命令提示字元)
 
-```powershell
-.\auto_merge_flow.ps1 -RepoPath "D:\Projects\rep_project" -TargetBranch "SIT_20260110" -CsvPath "D:\Docs\merge_list.csv"
+**基本合併作業：**
+```cmd
+.\run_auto_merge.bat -RepoPath "D:\Projects\rep_project" -TargetBranch "SIT_Integration" -CsvPath "D:\Docs\merge_list.csv"
 ```
 
-**指定基底分支範例 (例如基於 `main` 而非 `master`)：**
+**離線模式執行：**
+```cmd
+.\run_auto_merge.bat -RepoPath "D:\Projects\rep_project" -TargetBranch "SIT_Offline" -CsvPath "D:\Docs\list.csv" -Offline
+```
 
+### PowerShell 範例
+
+**指定基底分支範例 (例如基於 `main`)：**
 ```powershell
 .\auto_merge_flow.ps1 -RepoPath "D:\Projects\rep_project" -TargetBranch "UAT_Build" -BaseBranch "main" -CsvPath "D:\Docs\uat_list.csv"
 ```

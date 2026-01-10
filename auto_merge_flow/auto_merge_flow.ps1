@@ -19,6 +19,8 @@ param(
 
     [string]$CsvPath,
 
+    [switch]$Offline,
+
     [switch]$Help,
 
     # 捕捉所有未被綁定的剩餘參數
@@ -28,13 +30,14 @@ param(
 
 function Show-Usage {
     Write-Host "用法 (Usage):" -ForegroundColor Cyan
-    Write-Host "    .\auto_merge_flow.ps1 -RepoPath <Git倉庫路徑> -TargetBranch <目標分支> -CsvPath <CSV清單路徑> [-BaseBranch <基底分支>]"
+    Write-Host "    .\auto_merge_flow.ps1 -RepoPath <Git倉庫路徑> -TargetBranch <目標分支> -CsvPath <CSV清單路徑> [-BaseBranch <基底分支>] [-Offline]"
     Write-Host ""
     Write-Host "參數說明:"
     Write-Host "    -RepoPath      (必要) 本地 Git 倉庫的絕對路徑"
     Write-Host "    -TargetBranch  (必要) 合併後產出的目標分支名稱"
     Write-Host "    -CsvPath       (必要) 包含分支清單的 CSV 檔案路徑"
     Write-Host "    -BaseBranch    (選填) 基底分支名稱 (預設: master)"
+    Write-Host "    -Offline       (選填) 離線模式：不執行 fetch/pull，僅合併本地分支"
     Write-Host "    -Help          顯示此說明"
     Write-Host ""
 }
@@ -183,22 +186,29 @@ $ConflictDetails = New-Object System.Collections.Generic.List[string]  # 獨立�
 $NetworkWarning = "" # 用於記錄網路/更新狀態
 
 # 3. Git 環境準備
-Write-Host "更新遠端分支資訊 (git fetch)..." -ForegroundColor Yellow
-$FetchRes = Run-GitCmd -Command "fetch --all --prune" -WorkingDir $RepoPath
-if ($FetchRes.ExitCode -ne 0) {
-    Write-Host " [注意] 無法連接遠端伺服器進行更新 (可能處於離線狀態)。" -ForegroundColor Cyan
-    Write-Host "        將嘗試使用本地現有的分支資訊繼續執行。" -ForegroundColor Cyan
-    $NetworkWarning += "> ⚠️ **警告:** 無法連線至遠端 Git 伺服器 (Fetch failed)。此報告基於**本地快取**的舊代碼產生，可能不包含遠端最新變更。  `n"
+if (-not $Offline) {
+    Write-Host "更新遠端分支資訊 (git fetch)..." -ForegroundColor Yellow
+    $FetchRes = Run-GitCmd -Command "fetch --all --prune" -WorkingDir $RepoPath
+    if ($FetchRes.ExitCode -ne 0) {
+        Write-Host " [注意] 無法連接遠端伺服器進行更新 (可能處於離線狀態)。" -ForegroundColor Cyan
+        Write-Host "        將嘗試使用本地現有的分支資訊繼續執行。" -ForegroundColor Cyan
+        $NetworkWarning += "> ⚠️ **警告:** 無法連線至遠端 Git 伺服器 (Fetch failed)。此報告基於**本地快取**的舊代碼產生，可能不包含遠端最新變更。  `n"
+    }
+} else {
+    Write-Host "開啟離線模式，跳過遠端更新 (Skip fetch)。" -ForegroundColor Cyan
+    $NetworkWarning += "> ℹ️ **提示:** 使用者開啟離線模式 (Offline Mode)，跳過遠端更新，僅合併本地分支。  `n"
 }
 
 # 切換到 Base 分支並更新
 Write-Host ("切換至基底分支 {0}..." -f $BaseBranch)
 Run-GitCmd -Command ("checkout {0}" -f $BaseBranch) -WorkingDir $RepoPath | Out-Null
 
-$PullRes = Run-GitCmd -Command ("pull origin {0}" -f $BaseBranch) -WorkingDir $RepoPath
-if ($PullRes.ExitCode -ne 0) {
-    Write-Host (" [注意] 無法從遠端 pull {0} 的最新代碼，將使用本地版本。" -f $BaseBranch) -ForegroundColor Cyan
-    $NetworkWarning += ("> ⚠️ **警告:** 無法更新基底分支 ``{0}`` (Pull failed)。使用本地舊版本進行合併。  `n" -f $BaseBranch)
+if (-not $Offline) {
+    $PullRes = Run-GitCmd -Command ("pull origin {0}" -f $BaseBranch) -WorkingDir $RepoPath
+    if ($PullRes.ExitCode -ne 0) {
+        Write-Host (" [注意] 無法從遠端 pull {0} 的最新代碼，將使用本地版本。" -f $BaseBranch) -ForegroundColor Cyan
+        $NetworkWarning += ("> ⚠️ **警告:** 無法更新基底分支 ``{0}`` (Pull failed)。使用本地舊版本進行合併。  `n" -f $BaseBranch)
+    }
 }
 
 # 檢查目標分支是否存在，若存在則記錄資訊
@@ -259,11 +269,15 @@ foreach ($BranchName in $BranchList) {
     $Index++
     Write-Host ("[{0}/{1}] 正在合併: {2} ..." -f $Index, $BranchList.Count, $BranchName) -NoNewline
 
-    # 檢查遠端分支是否存在
-    $CheckRemote = Run-GitCmd -Command ("rev-parse --verify origin/{0}" -f $BranchName) -WorkingDir $RepoPath
-    if ($CheckRemote.ExitCode -ne 0) {
-        Write-Host " [略過] (遠端分支不存在)" -ForegroundColor Red
-        $Row = "| {0} | ``{1}`` | {2} | {3} | {4} |" -f $Index, $BranchName, "❌ 略過", "-", "遠端分支不存在"
+    # 決定合併目標 (離線找本地，連線找遠端)
+    $TargetToMerge = if ($Offline) { $BranchName } else { "origin/$BranchName" }
+
+    # 檢查分支是否存在
+    $CheckRef = Run-GitCmd -Command ("rev-parse --verify {0}" -f $TargetToMerge) -WorkingDir $RepoPath
+    if ($CheckRef.ExitCode -ne 0) {
+        $ErrorMsg = if ($Offline) { "本地分支不存在" } else { "遠端分支不存在" }
+        Write-Host (" [略過] ({0})" -f $ErrorMsg) -ForegroundColor Red
+        $Row = "| {0} | ``{1}`` | {2} | {3} | {4} |" -f $Index, $BranchName, "❌ 略過", "-", $ErrorMsg
         $ReportContent.Add($Row)
         continue
     }
@@ -273,7 +287,7 @@ foreach ($BranchName in $BranchList) {
     $MergeMsg = "Auto-merge {0} into {1}" -f $BranchName, $TargetBranch
     
     # 1. 嘗試合併但不提交 (以便偵測衝突)
-    $MergeCmd = 'merge origin/{0} --no-commit --no-ff' -f $BranchName
+    $MergeCmd = 'merge {0} --no-commit --no-ff' -f $TargetToMerge
     $MergeRes = Run-GitCmd -Command $MergeCmd -WorkingDir $RepoPath
 
     $CommitHash = "-"
