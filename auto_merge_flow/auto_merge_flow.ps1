@@ -140,7 +140,7 @@ if (-not (Test-Path "$RepoPath\.git")) {
 }
 
 if (-not (Test-Path $CsvPath)) {
-    Write-Error ("CSV 檔案不存在: {0}" -f $CsvPath)
+    Write-Host "你提供的 CSV 路徑好像不太對，我找不到這個檔案" -ForegroundColor Red
     exit 1
 }
 
