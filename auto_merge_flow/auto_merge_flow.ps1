@@ -2,6 +2,11 @@
 .SYNOPSIS
     自動依據 CSV 順序合併 Git 分支，並產出 Markdown 報告。
     衝突策略：使用 "theirs" (傳入變更) 優先。
+
+.NOTES
+    Developed by: robbin0919
+    Last Updated: 2026-01-10
+    Description: Automation tool for batch merging branches with conflict handling and reporting.
 #>
 
 [CmdletBinding()]

@@ -102,3 +102,11 @@ CSV 檔案需包含分支資訊，腳本會讀取 **第二欄** 作為 Git 分�
     *   A: 此腳本採用 **"Take Theirs"** 策略。當發生衝突時，會無條件使用「要合併進來的分支」內容覆蓋目標分支的內容。這是為了確保特定功能的程式碼能完整進入整合環境。
 *   **Q: 報表出現亂碼？**
     *   A: 腳本預設使用 UTF-8 with BOM 編碼輸出，大部分編輯器 (VS Code, Notepad++) 應能正常顯示。若在舊版 Console 顯示亂碼屬正常現象，不影響檔案內容。
+
+---
+
+## 開發者資訊 (Developer Info)
+
+*   **Author**: robbin0919
+*   **Last Updated**: 2026-01-10
+*   **Project**: Git Auto Merge Tool
