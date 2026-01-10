@@ -233,8 +233,25 @@ foreach ($BranchName in $BranchList) {
         
         # 4. 提交
         $CommitMsg = "{0} (Conflicts Resolved: Taken Theirs)" -f $MergeMsg
-        $CommitCmd = 'commit --no-edit -m "{0}"' -f $CommitMsg
+        
+        # 嘗試讀取 Git 產生的預設 MERGE_MSG (通常包含衝突檔案列表)
+        $MergeMsgFile = Join-Path $RepoPath ".git\MERGE_MSG"
+        if (Test-Path $MergeMsgFile) {
+            $OriginalMsg = Get-Content $MergeMsgFile -Encoding UTF8 -Raw -ErrorAction SilentlyContinue
+            if (-not [string]::IsNullOrWhiteSpace($OriginalMsg)) {
+                $CommitMsg += "`r`n`r`n--- Git Merge Message ---`r`n" + $OriginalMsg
+            }
+        }
+        
+        # 由於訊息可能包含多行，使用暫存檔來傳遞給 commit 指令會更安全
+        $MsgTempFile = Join-Path $env:TEMP ([Guid]::NewGuid().ToString() + ".txt")
+        $CommitMsg | Out-File -FilePath $MsgTempFile -Encoding UTF8
+        
+        $CommitCmd = 'commit --no-edit -F "{0}"' -f $MsgTempFile
         $CommitRes = Run-GitCmd -Command $CommitCmd -WorkingDir $RepoPath
+        
+        # 清理訊息暫存檔
+        if (Test-Path $MsgTempFile) { Remove-Item $MsgTempFile -Force }
             
         if ($CommitRes.ExitCode -eq 0) {
             $HashRes = Run-GitCmd -Command "rev-parse --short HEAD" -WorkingDir $RepoPath
