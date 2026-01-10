@@ -388,6 +388,133 @@ if ($ConflictDetails.Count -gt 0) {
 
 # 6. 輸出報告 (UTF8 在 WinPS 5.1 即為 UTF-8 with BOM)
 $ReportContent | Out-File -FilePath $ReportPath -Encoding UTF8
+
+# 7. 轉換並輸出 HTML 報告
+$HtmlPath = $ReportPath -replace '\.md$', '.html'
+$HtmlBody = New-Object System.Collections.Generic.List[string]
+
+# HTML Header & Style
+$HtmlBody.Add("<!DOCTYPE html>")
+$HtmlBody.Add("<html>")
+$HtmlBody.Add("<head>")
+$HtmlBody.Add("<meta charset='UTF-8'>")
+$HtmlBody.Add("<style>")
+$HtmlBody.Add("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; color: #333; }")
+$HtmlBody.Add("h1 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }")
+$HtmlBody.Add("h2 { color: #e67e22; margin-top: 30px; }")
+$HtmlBody.Add("h3 { color: #3498db; margin-top: 20px; }")
+$HtmlBody.Add("table { border-collapse: collapse; width: 100%; margin: 20px 0; box-shadow: 0 2px 3px rgba(0,0,0,0.1); }")
+$HtmlBody.Add("th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }")
+$HtmlBody.Add("th { background-color: #f8f9fa; color: #333; font-weight: bold; }")
+$HtmlBody.Add("tr:nth-child(even) { background-color: #f9f9f9; }")
+$HtmlBody.Add("tr:hover { background-color: #f1f1f1; }")
+$HtmlBody.Add("blockquote { border-left: 5px solid #eee; margin: 10px 0; padding: 10px 20px; color: #666; background-color: #fdfdfd; }")
+$HtmlBody.Add("code { background-color: #f0f0f0; padding: 2px 5px; border-radius: 3px; font-family: Consolas, monospace; color: #c7254e; }")
+$HtmlBody.Add("pre { background-color: #2b2b2b; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; font-family: Consolas, monospace; line-height: 1.5; }")
+$HtmlBody.Add(".conflict-file { font-weight: bold; margin-bottom: 5px; display: block; }")
+$HtmlBody.Add("</style>")
+$HtmlBody.Add("</head>")
+$HtmlBody.Add("<body>")
+
+$InTable = $false
+
+foreach ($Line in $ReportContent) {
+    # 簡單的 Markdown 轉換邏輯
+    $HtmlLine = $Line
+
+    # 處理特殊字元 (除了已經是 HTML 的部分)
+    # 注意：這裡不 Escape 全部，因為衝突區塊已經包含 HTML tags
+    # 我們只針對 Markdown 語法做替換
+
+    # 1. 表格處理
+    if ($HtmlLine -match '^\|.*\|$') {
+        # 這是表格行
+        if ($HtmlLine -match '\|:---|') {
+            # 分隔線，忽略
+            continue
+        }
+        
+        $Cells = $HtmlLine.Trim('|').Split('|')
+        
+        if (-not $InTable) {
+            $HtmlBody.Add("<table>")
+            $HtmlBody.Add("<thead><tr>")
+            foreach ($Cell in $Cells) { $HtmlBody.Add("<th>$($Cell.Trim())</th>") }
+            $HtmlBody.Add("</tr></thead><tbody>")
+            $InTable = $true
+        } else {
+            $HtmlBody.Add("<tr>")
+            # 針對內容做簡單的 Bold/Code 轉換
+            foreach ($Cell in $Cells) { 
+                $Content = $Cell.Trim()
+                # 轉換 ``text`` -> <code>
+                $Content = $Content -replace '``(.*?)``', '<code>$1</code>'
+                $HtmlBody.Add("<td>$Content</td>") 
+            }
+            $HtmlBody.Add("</tr>")
+        }
+        continue
+    } else {
+        if ($InTable) {
+            $HtmlBody.Add("</tbody></table>")
+            $InTable = $false
+        }
+    }
+
+    # 2. 標題
+    if ($HtmlLine -match '^# (.*)') {
+        $HtmlBody.Add("<h1>$($Matches[1])</h1>")
+        continue
+    }
+    if ($HtmlLine -match '^## (.*)') {
+        $HtmlBody.Add("<h2>$($Matches[1])</h2>")
+        continue
+    }
+    if ($HtmlLine -match '^### (.*)') {
+        $TitleContent = $Matches[1] -replace '``(.*?)``', '<code>$1</code>'
+        $HtmlBody.Add("<h3>$TitleContent</h3>")
+        continue
+    }
+
+    # 3. 分隔線
+    if ($HtmlLine -match '^---$') {
+        $HtmlBody.Add("<hr>")
+        continue
+    }
+
+    # 4. 引用
+    if ($HtmlLine -match '^> (.*)') {
+        $Content = $Matches[1] -replace '\*\*(.*?)\*\*', '<b>$1</b>' -replace '``(.*?)``', '<code>$1</code>'
+        $HtmlBody.Add("<blockquote>$Content</blockquote>")
+        continue
+    }
+
+    # 5. 一般文字與換行
+    if ([string]::IsNullOrWhiteSpace($HtmlLine)) {
+        # 空行不輸出或輸出 <br>
+    } else {
+        # 如果是 HTML 標籤 (如 <pre> 區塊)，直接輸出
+        if ($HtmlLine -match '^<.*>$') {
+             $HtmlBody.Add($HtmlLine)
+        } else {
+             # 一般文字：處理 Bold, Code
+             $Content = $HtmlLine -replace '\*\*(.*?)\*\*', '<b>$1</b>' -replace '``(.*?)``', '<code>$1</code>'
+             # 如果上一行是標題或表格，這裡可能需要 <p>，簡單起見直接輸出並加 <br>
+             $HtmlBody.Add("<p>$Content</p>")
+        }
+    }
+}
+
+if ($InTable) {
+    $HtmlBody.Add("</tbody></table>")
+}
+
+$HtmlBody.Add("</body>")
+$HtmlBody.Add("</html>")
+
+$HtmlBody | Out-File -FilePath $HtmlPath -Encoding UTF8
+
 Write-Host "`n流程結束。" -ForegroundColor Green
-Write-Host ("報告已產出: {0}" -f $ReportPath)
+Write-Host ("Markdown 報告已產出: {0}" -f $ReportPath)
+Write-Host ("HTML     報告已產出: {0}" -f $HtmlPath)
 Write-Host "請通知 PM 與開發人員檢視該報告。"
