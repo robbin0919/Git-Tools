@@ -81,19 +81,19 @@ CSV 檔案需包含分支資訊，腳本會讀取 **第二欄** 作為 Git 分�
 
 **基本合併作業：**
 ```cmd
-.\run_auto_merge.bat -RepoPath "D:\Projects\rep_project" -TargetBranch "SIT_Integration" -CsvPath "D:\Docs\merge_list.csv"
+.\run_auto_merge.bat -RepoPath "D:\Projects\rep_robbinLab" -TargetBranch "SIT_Integration" -CsvPath "D:\Docs\merge_list.csv"
 ```
 
 **離線模式執行：**
 ```cmd
-.\run_auto_merge.bat -RepoPath "D:\Projects\rep_project" -TargetBranch "SIT_Offline" -CsvPath "D:\Docs\list.csv" -Offline
+.\run_auto_merge.bat -RepoPath "D:\Projects\rep_robbinLab" -TargetBranch "SIT_Offline" -CsvPath "D:\Docs\list.csv" -Offline
 ```
 
 ### PowerShell 範例
 
 **指定基底分支範例 (例如基於 `main`)：**
 ```powershell
-.\auto_merge_flow.ps1 -RepoPath "D:\Projects\rep_project" -TargetBranch "UAT_Build" -BaseBranch "main" -CsvPath "D:\Docs\uat_list.csv"
+.\auto_merge_flow.ps1 -RepoPath "D:\Projects\rep_robbinLab" -TargetBranch "UAT_Build" -BaseBranch "main" -CsvPath "D:\Docs\uat_list.csv"
 ```
 
 ## 輸出結果
