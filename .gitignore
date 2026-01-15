@@ -1,2 +1,7 @@
 .vscode/
 .github/ 
+.gemini/
+*.bkp
+
+# Jira Configuration (Sensistive)
+jira_config.json
