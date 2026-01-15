@@ -4,7 +4,7 @@
     
 .DESCRIPTION
     This script retrieves issues from Jira using the REST API (JQL) and exports them to a CSV file.
-    It handles pagination automatically.
+    Configuration is loaded from 'jira_config.json'.
     
 .NOTES
     File Name  : jira_export.ps1
@@ -12,16 +12,33 @@
     Prerequisite: PowerShell Core (pwsh) recommended for Linux/Mac compatibility.
 #>
 
-# --- Configuration (請修改此處) ---
-$JiraDomain = "https://your-domain.atlassian.net"      # 您的 Jira 網址
-$Email      = "your-email@example.com"                 # 您的登入 Email
-$ApiToken   = "your-api-token"                         # Atlassian API Token
-$Jql        = 'project = "PROJ" ORDER BY created DESC' # JQL 查詢語法
-$OutputFile = "jira_export_ps.csv"                     # 輸出檔案名稱
-$Delimiter  = ","                                      # CSV 分隔符號 (例如 "," 或 ";")
+# --- Load Configuration ---
+$ConfigPath = Join-Path $PSScriptRoot "jira_config.json"
+
+if (-not (Test-Path $ConfigPath)) {
+    Write-Error "Configuration file not found: $ConfigPath"
+    Write-Host "Please create 'jira_config.json' based on 'jira_config.json.example'." -ForegroundColor Yellow
+    exit 1
+}
+
+try {
+    $Config = Get-Content -Path $ConfigPath -Raw | ConvertFrom-Json
+}
+catch {
+    Write-Error "Failed to parse JSON configuration: $($_.Exception.Message)"
+    exit 1
+}
+
+# Map configuration variables
+$JiraDomain  = $Config.JiraDomain
+$Email       = $Config.Email
+$ApiToken    = $Config.ApiToken
+$Jql         = $Config.Jql
+$OutputFile  = $Config.OutputFile
+$Delimiter   = $Config.Delimiter
+$FetchFields = $Config.FetchFields
 
 # --- Authentication ---
-# 建立 Basic Auth Header
 $AuthPair = "$($Email):$($ApiToken)"
 $EncodedAuth = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($AuthPair))
 $Headers = @{ 
@@ -31,7 +48,7 @@ $Headers = @{
 
 # --- Main Logic ---
 $StartAt = 0
-$MaxResults = 50 # 每次請求抓取的數量 (建議 50-100)
+$MaxResults = 50 
 $AllIssues = @()
 
 Write-Host "Starting Jira export..." -ForegroundColor Cyan
@@ -39,8 +56,7 @@ Write-Host "Target: $JiraDomain" -ForegroundColor Gray
 Write-Host "Query: $Jql" -ForegroundColor Gray
 
 do {
-    # 組合 API URL
-    $Uri = "$JiraDomain/rest/api/3/search?jql=$Jql&startAt=$StartAt&maxResults=$MaxResults&fields=key,summary,status,assignee,created,priority"
+    $Uri = "$JiraDomain/rest/api/3/search?jql=$Jql&startAt=$StartAt&maxResults=$MaxResults&fields=$FetchFields"
     
     try {
         Write-Host "Fetching records starting at index $StartAt..." -NoNewline
@@ -69,19 +85,20 @@ if ($AllIssues.Count -gt 0) {
     Write-Host "Processing $($AllIssues.Count) issues..." -ForegroundColor Cyan
     
     $ExportData = $AllIssues | ForEach-Object {
-        # 處理巢狀物件與空值檢查
+        
+        # [CSV Column Mapping]
+        # Adjust the properties below to change CSV headers or order
         [PSCustomObject]@{
-            Key       = $_.key
-            Summary   = $_.fields.summary
-            Status    = $_.fields.status.name
-            Priority  = if ($_.fields.priority) { $_.fields.priority.name } else { "None" }
-            Assignee  = if ($_.fields.assignee) { $_.fields.assignee.displayName } else { "Unassigned" }
-            Created   = $_.fields.created
-            Link      = "$JiraDomain/browse/$($_.key)"
+            "Issue Key" = $_.key
+            "Summary"   = $_.fields.summary
+            "Status"    = $_.fields.status.name
+            "Priority"  = if ($_.fields.priority) { $_.fields.priority.name } else { "None" }
+            "Assignee"  = if ($_.fields.assignee) { $_.fields.assignee.displayName } else { "Unassigned" }
+            "Created"   = $_.fields.created
+            "Link"      = "$JiraDomain/browse/$($_.key)"
         }
     }
 
-    # 匯出 CSV (UTF-8)
     $ExportData | Export-Csv -Path $OutputFile -NoTypeInformation -Encoding utf8 -Delimiter $Delimiter
     
     Write-Host "Export successfully saved to: $OutputFile (Delimiter: '$Delimiter')" -ForegroundColor Green

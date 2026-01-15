@@ -1,0 +1,9 @@
+{
+    "JiraDomain": "https://your-domain.atlassian.net",
+    "Email": "your-email@example.com",
+    "ApiToken": "your-api-token-here",
+    "Jql": "project = \"PROJ\" ORDER BY created DESC",
+    "OutputFile": "jira_export_results.csv",
+    "Delimiter": ",",
+    "FetchFields": "key,summary,status,assignee,created,priority"
+}
