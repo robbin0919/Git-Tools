@@ -5,5 +5,18 @@
     "Jql": "project = \"PROJ\" ORDER BY created DESC",
     "OutputFile": "jira_export_results.csv",
     "Delimiter": ",",
-    "FetchFields": "key,summary,status,assignee,created,priority"
+    
+    "//_comment_FetchFields": "API 請求欄位 (請確保這裡有列出，ColumnMapping 才能抓到值)",
+    "FetchFields": "key,summary,status,assignee,created,priority",
+
+    "//_comment_ColumnMapping": "CSV 欄位定義：左邊是 CSV 標頭，右邊是 JSON 資料路徑 (支援 . 號巢狀讀取)",
+    "ColumnMapping": {
+        "案件編號": "key",
+        "摘要": "fields.summary",
+        "狀態": "fields.status.name",
+        "優先級": "fields.priority.name",
+        "負責人": "fields.assignee.displayName",
+        "建立時間": "fields.created",
+        "連結 (Key)": "key"
+    }
 }

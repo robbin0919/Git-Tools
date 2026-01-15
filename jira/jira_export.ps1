@@ -1,16 +1,39 @@
 <#
 .SYNOPSIS
-    Jira Issue Export Tool (CSV)
+    Jira Issue Export Tool (Dynamic CSV)
     
 .DESCRIPTION
-    This script retrieves issues from Jira using the REST API (JQL) and exports them to a CSV file.
-    Configuration is loaded from 'jira_config.json'.
+    Retrieves issues from Jira and exports to CSV based on a JSON configuration.
+    Supports dynamic field mapping without modifying code.
     
 .NOTES
     File Name  : jira_export.ps1
     Author     : Robbin (via Gemini)
-    Prerequisite: PowerShell Core (pwsh) recommended for Linux/Mac compatibility.
 #>
+
+# --- Helper Function: Get Nested Property Value ---
+function Get-NestedValue {
+    param (
+        [Parameter(Mandatory=$true)] $Object,
+        [string] $Path,
+        [string] $JiraBaseUrl
+    )
+
+    # Special Feature: Construct URL if configured
+    if ($Path -eq "__LINK__") {
+        return "$JiraBaseUrl/browse/$($Object.key)"
+    }
+
+    # Split path by dot (e.g. "fields.status.name")
+    $Parts = $Path -split '\.'
+    $Current = $Object
+
+    foreach ($Part in $Parts) {
+        if ($null -eq $Current) { return $null }
+        $Current = $Current.$Part
+    }
+    return $Current
+}
 
 # --- Load Configuration ---
 $ConfigPath = Join-Path $PSScriptRoot "jira_config.json"
@@ -22,6 +45,7 @@ if (-not (Test-Path $ConfigPath)) {
 }
 
 try {
+    # -Ordered preserves the order of ColumnMapping in JSON
     $Config = Get-Content -Path $ConfigPath -Raw | ConvertFrom-Json
 }
 catch {
@@ -37,6 +61,7 @@ $Jql         = $Config.Jql
 $OutputFile  = $Config.OutputFile
 $Delimiter   = $Config.Delimiter
 $FetchFields = $Config.FetchFields
+$Mapping     = $Config.ColumnMapping
 
 # --- Authentication ---
 $AuthPair = "$($Email):$($ApiToken)"
@@ -53,25 +78,23 @@ $AllIssues = @()
 
 Write-Host "Starting Jira export..." -ForegroundColor Cyan
 Write-Host "Target: $JiraDomain" -ForegroundColor Gray
-Write-Host "Query: $Jql" -ForegroundColor Gray
 
 do {
     $Uri = "$JiraDomain/rest/api/3/search?jql=$Jql&startAt=$StartAt&maxResults=$MaxResults&fields=$FetchFields"
     
     try {
         Write-Host "Fetching records starting at index $StartAt..." -NoNewline
-        
         $Response = Invoke-RestMethod -Uri $Uri -Headers $Headers -Method Get
         $Batch = $Response.issues
         
         if ($null -eq $Batch -or $Batch.Count -eq 0) { 
-            Write-Host " Done (No more records)." -ForegroundColor Yellow
+            Write-Host " Done." -ForegroundColor Yellow
             break 
         }
         
         $AllIssues += $Batch
         $StartAt += $Batch.Count
-        Write-Host " Retrieved $($Batch.Count) records." -ForegroundColor Green
+        Write-Host " Retrieved $($Batch.Count)." -ForegroundColor Green
     }
     catch {
         Write-Host "`nError: Request failed." -ForegroundColor Red
@@ -80,28 +103,37 @@ do {
     }
 } while ($Batch.Count -eq $MaxResults)
 
-# --- Export to CSV ---
+# --- Dynamic CSV Generation ---
 if ($AllIssues.Count -gt 0) {
-    Write-Host "Processing $($AllIssues.Count) issues..." -ForegroundColor Cyan
+    Write-Host "Processing $($AllIssues.Count) issues with dynamic mapping..." -ForegroundColor Cyan
     
     $ExportData = $AllIssues | ForEach-Object {
+        $Issue = $_
+        $Row = [ordered]@{} # Use Ordered Dictionary to keep column order
         
-        # [CSV Column Mapping]
-        # Adjust the properties below to change CSV headers or order
-        [PSCustomObject]@{
-            "Issue Key" = $_.key
-            "Summary"   = $_.fields.summary
-            "Status"    = $_.fields.status.name
-            "Priority"  = if ($_.fields.priority) { $_.fields.priority.name } else { "None" }
-            "Assignee"  = if ($_.fields.assignee) { $_.fields.assignee.displayName } else { "Unassigned" }
-            "Created"   = $_.fields.created
-            "Link"      = "$JiraDomain/browse/$($_.key)"
+        # Iterate through the JSON Mapping keys
+        foreach ($Header in $Mapping.PSObject.Properties.Name) {
+            $Path = $Mapping.$Header
+            
+            # Extract value dynamically
+            $Value = Get-NestedValue -Object $Issue -Path $Path -JiraBaseUrl $JiraDomain
+            
+            # Handle nulls/arrays nicely
+            if ($null -eq $Value) { 
+                $Value = "" 
+            }
+            elseif ($Value -is [Array]) {
+                $Value = $Value -join "; " # Join arrays (like labels) with semicolon
+            }
+            
+            $Row[$Header] = $Value
         }
+        
+        [PSCustomObject]$Row
     }
 
     $ExportData | Export-Csv -Path $OutputFile -NoTypeInformation -Encoding utf8 -Delimiter $Delimiter
-    
-    Write-Host "Export successfully saved to: $OutputFile (Delimiter: '$Delimiter')" -ForegroundColor Green
+    Write-Host "Success! Saved to: $OutputFile" -ForegroundColor Green
 }
 else {
     Write-Host "No issues found." -ForegroundColor Yellow
