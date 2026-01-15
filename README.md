@@ -19,7 +19,23 @@ This project contains several Git automation workflow tools designed to simplify
 *   **Features**: Automatically handles conflicts (using "Take Theirs" strategy), generates detailed Markdown merge reports, and supports offline mode.
 
 ### 3. [Git_Blob_Header](./Git_Blob_Header/) - Git Blob 大小計算工具 (Git Blob Size Calculator)
+
 *   **用途**: 計算檔案在 Git 內部存儲為 Blob 物件時的完整大小（包含 Git Header）。
+
 *   **特色**: 提供 Shell 與 Batch 腳本、詳細顯示 Header 與原始檔案的大小資訊。
+
 *   **Purpose**: Calculates the full size of a file when stored as a Git Blob object (including the Git Header).
+
 *   **Features**: Provides Shell and Batch scripts, detailing the sizes of both the header and the original file.
+
+
+
+### 4. [jira](./jira/) - Jira 資料匯出工具 (Jira Data Export Tool)
+
+*   **用途**: 透過 Jira REST API 自動將 Jira Issues 資料匯出為 CSV 檔案。
+
+*   **特色**: 支援 Python 與 PowerShell 實作、提供自動化定時執行指南、方便進行報表製作與資料備份。
+
+*   **Purpose**: Automatically exports Jira Issues data to CSV files via the Jira REST API.
+
+*   **Features**: Supports Python and PowerShell implementations, provides automation scheduling guides, and facilitates report generation and data backup.
