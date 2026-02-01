@@ -30,12 +30,16 @@ This project contains several Git automation workflow tools designed to simplify
 
 
 
-### 4. [jira](./jira/) - Jira 資料匯出工具 (Jira Data Export Tool)
-
-*   **用途**: 透過 Jira REST API 自動將 Jira Issues 資料匯出為 CSV 檔案。
-
-*   **特色**: 支援 Python 與 PowerShell 實作、提供自動化定時執行指南、方便進行報表製作與資料備份。
-
-*   **Purpose**: Automatically exports Jira Issues data to CSV files via the Jira REST API.
-
-*   **Features**: Supports Python and PowerShell implementations, provides automation scheduling guides, and facilitates report generation and data backup.
+### 4. [Jira_CSV_Export_Automation](./Jira_CSV_Export_Automation/) - Jira 資料匯出自動化工具 (Jira Data Export Automation Tool)
+*   **用途**: 透過 Jira REST API 自動將 Jira Issues 資料匯出為 CSV 檔案，支援高度自定義的欄位對應。
+*   **特色**:
+    *   **多重認證支援**: 支援 Jira Cloud (API Token) 與 Jira Server/Data Center (PAT, Basic Auth)。
+    *   **動態欄位解析**: 支援 JSON 路徑與自定義欄位 (Custom Fields) 的動態映射。
+    *   **日期格式化**: 自動將 Jira 日期轉換為專案指定格式。
+    *   **自動化友好**: 提供 PowerShell 實作與詳細的環境設定指南，方便整合至定時任務。
+*   **Purpose**: Automatically exports Jira Issues data to CSV files via the Jira REST API, supporting highly customizable field mapping.
+*   **Features**:
+    *   **Multi-Auth Support**: Compatible with Jira Cloud (API Token) and Jira Server/Data Center (PAT, Basic Auth).
+    *   **Dynamic Field Resolution**: Supports JSON pathing and dynamic mapping for custom fields.
+    *   **Date Formatting**: Automatically converts Jira dates into project-specific formats.
+    *   **Automation Friendly**: Includes PowerShell implementation and detailed setup guides for easy scheduling.
