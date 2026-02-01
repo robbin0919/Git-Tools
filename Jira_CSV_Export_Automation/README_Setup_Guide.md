@@ -119,7 +119,7 @@ Invoke-RestMethod -Uri "https://your-domain.atlassian.net/rest/api/3/field" -Hea
 
 ## 日期格式
 
-日期會自動格式化為 PROJECT 格式: `dd/MMM/yy h:mm tt`
+日期會自動格式化為專案指定格式: `dd/MMM/yy h:mm tt`
 範例: `08/Jan/26 11:26 AM`
 
 ## 陣列欄位處理

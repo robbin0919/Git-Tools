@@ -315,12 +315,12 @@ Write-Host "`n提示: 請在 jira_config.json 中更新對應的 customfield ID"
 .\find_custom_fields.ps1 -JiraDomain "https://your-domain.atlassian.net" `
                          -Email "your-email@example.com" `
                          -ApiToken "your-api-token" `
-                         -IssueKey "PROJECT-383"
+                         -IssueKey "PROJ-101"
 ```
 
 ## 更新配置檔案
 
-找到正確的欄位 ID 後，更新 `jira_config_project.json`：
+找到正確的欄位 ID 後，更新 `jira_config.json`：
 
 ```json
 {

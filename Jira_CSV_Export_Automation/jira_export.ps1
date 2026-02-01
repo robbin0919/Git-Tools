@@ -56,7 +56,7 @@ function Get-NestedValue {
     return $Current
 }
 
-# --- Helper Function: Format Date for PROJECT ---
+# --- Helper Function: Format Date for Project ---
 function Format-ProjectDate {
     param ([string]$DateString)
     
