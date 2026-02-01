@@ -1,0 +1,40 @@
+{
+    "JiraDomain": "https://jira.example.com",
+    "ApiVersion": "2",
+    
+    "//_comment_auth_pat": "推薦：Jira Server/Data Center 使用 Personal Access Token (8.14+)",
+    "PersonalAccessToken": "your-personal-access-token",
+    
+    "//_comment_auth_basic": "或使用 Username + Password（註解掉上面的 PAT）：",
+    "//Username": "your-username",
+    "//Password": "your-password",
+    
+    "//_comment_auth_cloud": "Jira Cloud 使用以下認證方式（註解掉上面的認證）：",
+    "//Email": "your-email@example.com",
+    "//ApiToken": "your-api-token-here",
+    
+    "Jql": "project = YOUR_PROJECT ORDER BY status DESC, issuetype DESC, KEY DESC",
+    "OutputFile": "jira_export_results.csv",
+    "Delimiter": "^",
+    
+    "//_comment_ApiVersion": "Jira Server/Data Center 使用 2, Jira Cloud 使用 3",
+    "//_comment_FetchFields": "API 請求欄位 - 包含所有需要的欄位和自訂欄位",
+    "FetchFields": "key,summary,status,created,updated,labels,fixVersions,duedate,issuetype,customfield_10600,customfield_10602",
+
+    "//_comment_ColumnMapping": "CSV 欄位定義：使用陣列格式以支援重複欄位名稱。Path 可使用 [index] 取得陣列元素 (例如: fields.labels[0])",
+    "ColumnMapping": [
+        { "Header": "Issue key", "Path": "key" },
+        { "Header": "Issue id", "Path": "id" },
+        { "Header": "Status", "Path": "fields.status.name" },
+        { "Header": "Created", "Path": "fields.created" },
+        { "Header": "Updated", "Path": "fields.updated" },
+        { "Header": "Summary", "Path": "fields.summary" },
+        { "Header": "Labels", "Path": "fields.labels" },
+        { "Header": "Labels", "Path": "fields.labels" },
+        { "Header": "Fix Version/s", "Path": "fields.fixVersions" },
+        { "Header": "Due Date", "Path": "fields.duedate" },
+        { "Header": "Issue Type", "Path": "fields.issuetype.name" },
+        { "Header": "Custom field (AP編號)", "Path": "fields.customfield_10600" },
+        { "Header": "Custom field (DB編號)", "Path": "fields.customfield_10602" }
+    ]
+}
